@@ -9,7 +9,8 @@ import {
   Settings,
   LogOut,
   PlusCircle,
-  FileText
+  FileText,
+  Users
 } from "lucide-react";
 
 export default function OrgDashboardLayout({
@@ -23,7 +24,8 @@ export default function OrgDashboardLayout({
     { name: 'Ringkasan Organisasi', href: '/org-dashboard', icon: PieChart },
     { name: 'Manajemen Sub-Toko', href: '/org-dashboard/stores', icon: Store },
     { name: 'Daftarkan Proker Baru', href: '/org-dashboard/new-proker', icon: PlusCircle },
-    { name: 'Laporan Agregat', href: '/org-dashboard/reports', icon: FileText },
+    { name: 'Laporan Agregat', href: '/org-dashboard/agregat', icon: FileText },
+    {name: 'Manajemen Anggota', href: '/org-dashboard/members', icon: Users },
     { name: 'Profil Organisasi', href: '/org-dashboard/settings', icon: Building2 },
   ];
 
