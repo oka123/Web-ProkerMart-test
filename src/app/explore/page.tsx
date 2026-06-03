@@ -108,7 +108,7 @@ export default function ExplorePage() {
       <div className="bg-white border-b border-slate-200 sticky top-16 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-            <div className="w-full md:w-2/3 relative">
+            <div className="w-full relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <Search className="h-5 w-5 text-slate-400" />
               </div>
