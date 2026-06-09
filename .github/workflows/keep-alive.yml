@@ -1,0 +1,22 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # Berjalan setiap hari pada pukul 00:00 UTC
+    - cron: "0 0 * * *"
+  workflow_dispatch: # Memungkinkan eksekusi manual dari tab Actions di GitHub
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping API Keep-Alive
+        run: |
+          # Ganti URL di bawah dengan URL asli aplikasi Anda setelah di-deploy (misalnya di Vercel)
+          # Anda juga bisa menggunakan GitHub Secrets untuk URL-nya seperti: ${{ secrets.PROD_URL }}/api/cron/keep-alive
+
+          # Contoh: curl -f "https://prokermart-test.vercel.app/api/cron/keep-alive"
+
+          echo "Pinging application route to keep Supabase awake..."
+          # Hapus '#' pada baris curl di bawah setelah URL production Anda tersedia
+          curl -f -sS "https://prokermart-test.vercel.app/api/cron/keep-alive"

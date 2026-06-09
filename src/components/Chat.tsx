@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { createClient } from "@/lib/supabase/client";
 
 interface Message {
   id: number;
@@ -115,7 +116,29 @@ export function Chat() {
   const [view, setView] = useState<"list" | "chat">("list");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [newMessage, setNewMessage] = useState("");
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    
+    // Get initial session
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+      setLoading(false);
+    });
+
+    // Listen to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   // Listen for global open event
   useEffect(() => {
@@ -140,6 +163,8 @@ export function Chat() {
     if (!newMessage.trim()) return;
     setNewMessage("");
   };
+
+  if (loading || !user) return null;
 
   return (
     <>
