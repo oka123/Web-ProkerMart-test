@@ -21,6 +21,7 @@ import Image from "next/image";
 import { Navbar } from "@/components/Navbar";
 import { UserSidebar } from "@/components/user/UserSidebar";
 import { MobileHeader } from "@/components/MobileHeader";
+import { LogoutButton } from "@/components/logout-button";
 
 const orderStatus = [
   { name: "Belum Bayar", icon: CreditCard, count: 0 },
@@ -115,7 +116,7 @@ const menuList = [
 export default function UserDashboardPage() {
   return (
     <div className="min-h-screen bg-[#f5f5f5] flex flex-col font-sans text-slate-800 ">
-      <div className="hidden lg:block">
+      <div className="hidden lg:block ">
         <Navbar />
       </div>
 
@@ -270,10 +271,7 @@ export default function UserDashboardPage() {
 
               {/* Logout Button Mobile */}
               <div className="mt-4 px-4 pb-8">
-                <button className="w-full flex items-center justify-center gap-2 py-3 bg-white text-red-500 font-medium rounded-sm border border-red-100 shadow-sm">
-                  <LogOut className="w-5 h-5" />
-                  Keluar
-                </button>
+                <LogoutButton className="w-full flex items-center justify-center gap-2 py-3 bg-white text-red-500 font-medium rounded-sm border border-red-100 shadow-sm"></LogoutButton>
               </div>
             </div>
 
@@ -303,7 +301,7 @@ export default function UserDashboardPage() {
                   </div>
                   <div className="bg-slate-50 p-6 rounded-sm border border-slate-100">
                     <span className="text-3xl font-bold text-primary-600">
-                      4
+                      0
                     </span>
                     <p className="text-xs text-slate-500 mt-1 uppercase tracking-wider font-bold">
                       Voucher Saya

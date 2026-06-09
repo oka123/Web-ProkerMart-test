@@ -50,7 +50,7 @@ export default function Home() {
                     <ArrowRight className="ml-2 w-5 h-5" />
                   </Link>
                   <Link
-                    href="/register-organization"
+                    href="/auth/sign-up"
                     className="inline-flex items-center justify-center px-8 py-4 text-base font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-primary-200 dark:hover:border-primary-700 hover:bg-primary-50 dark:hover:bg-slate-700 rounded-xl shadow-sm transition-all"
                   >
                     Daftarkan Organisasi
