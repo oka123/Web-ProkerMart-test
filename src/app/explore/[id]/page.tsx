@@ -9,6 +9,7 @@ import {
   CreditCard,
   ChevronRight,
   CheckCircle,
+  ArrowLeft,
 } from "lucide-react";
 import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
@@ -29,8 +30,8 @@ export default function ProductDetail() {
 
   // Fungsi saat tombol Checkout diklik
   const handleCheckout = () => {
-    // Arahkan pembeli langsung ke halaman keranjang
-    router.push("/cart");
+    // Arahkan pembeli langsung ke halaman checkout
+    router.push("/checkout");
   };
 
   const dummyProduct = {
@@ -50,6 +51,15 @@ export default function ProductDetail() {
     <div className="min-h-screen bg-slate-50">
       <Navbar />
       <div className="max-w-5xl mx-auto px-4 py-6 md:px-8 md:py-10">
+        {/* Tombol Kembali (Floating) */}
+        <button
+          onClick={() => router.back()}
+          className="fixed top-28 left-4 md:left-20 z-40 w-12 h-12 bg-white rounded-full shadow-lg border border-slate-200 flex items-center justify-center text-slate-700 hover:text-blue-600 hover:border-blue-300 hover:shadow-xl hover:-translate-y-1 transition-all"
+          title="Kembali"
+        >
+          <ArrowLeft className="w-6 h-6" />
+        </button>
+
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-sm text-slate-500 mb-6">
           <Link href="/explore" className="hover:text-blue-600 transition">
@@ -159,32 +169,6 @@ export default function ProductDetail() {
                   </div>
                 </div>
 
-                {/* Metode Pengambilan */}
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-blue-500" />
-                    Metode Pengambilan
-                  </label>
-                  <select className="border border-slate-300 rounded-lg px-3 py-2.5 bg-white text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition w-full">
-                    <option value="stand">
-                      🏪 Ambil di Stand — {dummyProduct.pickupLocation}
-                    </option>
-                    <option value="delivery">🛵 Diantar (Area Kampus)</option>
-                  </select>
-                </div>
-
-                {/* Metode Pembayaran */}
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    <CreditCard className="w-4 h-4 text-blue-500" />
-                    Metode Pembayaran
-                  </label>
-                  <select className="border border-slate-300 rounded-lg px-3 py-2.5 bg-white text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition w-full">
-                    <option value="qris">📱 QRIS / E-Wallet</option>
-                    <option value="transfer">🏦 Transfer Bank</option>
-                    <option value="cash">💵 Tunai (Saat COD)</option>
-                  </select>
-                </div>
 
                 {/* Ringkasan Total */}
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mt-1">
@@ -216,48 +200,16 @@ export default function ProductDetail() {
                     Keranjang
                   </button>
 
-                  {/* <button
+                  <button
                     type="button"
-                    onClick={handleCheckout} // <--- Panggil fungsi Checkout
+                    onClick={handleCheckout}
                     className="flex-1 md:flex-none md:w-40 bg-blue-600 text-white font-bold py-2.5 px-4 rounded-xl hover:bg-blue-700 active:scale-95 transition-all shadow-sm text-sm"
                   >
                     Checkout
-                  </button> */}
+                  </button>
                 </div>
 
-                {/* =====  INFO LOKASI  ===== */}
-                <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 mt-2">
-                  <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-blue-500" />
-                    Detail Lokasi
-                  </h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-xs text-slate-500 font-medium mb-0.5">
-                        Lokasi Pengambilan
-                      </p>
-                      <p className="text-sm text-slate-800 font-semibold">
-                        {dummyProduct.pickupLocation}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 font-medium mb-0.5">
-                        Jam Operasional
-                      </p>
-                      <p className="text-sm text-slate-800 font-semibold">
-                        08.00 – 16.00 WITA
-                      </p>
-                    </div>
-                    <div className="col-span-2">
-                      <p className="text-xs text-slate-500 font-medium mb-0.5">
-                        Area Pengiriman
-                      </p>
-                      <p className="text-sm text-slate-800 font-semibold">
-                        Dalam Lingkungan Kampus
-                      </p>
-                    </div>
-                  </div>
-                </div>
+
                 {/* ==================================================== */}
               </div>
             </div>

@@ -9,6 +9,7 @@ import {
   LogOut,
   PlusCircle,
   FileText,
+  Users
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 
@@ -20,19 +21,12 @@ export default function OrgDashboardLayout({
   const pathname = usePathname();
 
   const navigation = [
-    { name: "Ringkasan Organisasi", href: "/org-dashboard", icon: PieChart },
-    { name: "Manajemen Sub-Toko", href: "/org-dashboard/stores", icon: Store },
-    {
-      name: "Daftarkan Proker Baru",
-      href: "/org-dashboard/new-proker",
-      icon: PlusCircle,
-    },
-    { name: "Laporan Agregat", href: "/org-dashboard/reports", icon: FileText },
-    {
-      name: "Profil Organisasi",
-      href: "/org-dashboard/settings",
-      icon: Building2,
-    },
+    { name: 'Ringkasan Organisasi', href: '/org-dashboard', icon: PieChart },
+    { name: 'Manajemen Sub-Toko', href: '/org-dashboard/stores', icon: Store },
+    { name: 'Daftarkan Proker Baru', href: '/org-dashboard/new-proker', icon: PlusCircle },
+    { name: 'Laporan Agregat', href: '/org-dashboard/agregat', icon: FileText },
+    {name: 'Manajemen Anggota', href: '/org-dashboard/members', icon: Users },
+    { name: 'Profil Organisasi', href: '/org-dashboard/settings', icon: Building2 },
   ];
 
   return (
