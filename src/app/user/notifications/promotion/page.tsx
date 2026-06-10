@@ -2,13 +2,6 @@
 
 import {
   ShoppingCart,
-  MessageSquare,
-  Ticket,
-  Video,
-  Wallet,
-  Info,
-  Bell,
-  ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";

@@ -1,0 +1,538 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Navbar } from "@/components/Navbar";
+import {
+  ArrowLeft,
+  MapPin,
+  Truck,
+  CreditCard,
+  QrCode,
+  Wallet,
+  CheckCircle,
+  ShoppingBag,
+  Copy,
+  AlertCircle,
+  Navigation,
+  Map,
+  Search,
+  Loader2,
+} from "lucide-react";
+
+export default function CheckoutPage() {
+  const router = useRouter();
+
+  const [deliveryMethod, setDeliveryMethod] = useState<"pickup" | "delivery" | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"qris" | "transfer" | "cod" | null>(null);
+  const [hasSavedAddress, setHasSavedAddress] = useState(false); // Toggle ini untuk mensimulasikan sudah ada alamat/belum
+  
+  // Pick Up States
+  const [pickupTime, setPickupTime] = useState("");
+  const [newAddressDetail, setNewAddressDetail] = useState("");
+  const [showPaymentAlert, setShowPaymentAlert] = useState(false);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  
+  // States for Notifications/Modals
+  const [showToast, setShowToast] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentGatewayState, setPaymentGatewayState] = useState<"loading" | "qris" | "transfer" | null>(null);
+
+  const [paymentStatus, setPaymentStatus] = useState<"PENDING" | "PAID" | "EXPIRED">("PENDING");
+  const [timeLeft, setTimeLeft] = useState(300);
+  const [isCheckingManual, setIsCheckingManual] = useState(false);
+
+  // Logic Hooks
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (showPaymentModal && paymentGatewayState && paymentGatewayState !== "loading" && paymentStatus === "PENDING") {
+      timer = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            setPaymentStatus("EXPIRED");
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [showPaymentModal, paymentGatewayState, paymentStatus]);
+
+  useEffect(() => {
+    let webhookTimer: NodeJS.Timeout;
+    if (showPaymentModal && paymentGatewayState && paymentGatewayState !== "loading" && paymentStatus === "PENDING") {
+      webhookTimer = setTimeout(() => {
+        setPaymentStatus("PAID");
+      }, 7000);
+    }
+    return () => clearTimeout(webhookTimer);
+  }, [showPaymentModal, paymentGatewayState, paymentStatus]);
+
+  useEffect(() => {
+    let redirectTimer: NodeJS.Timeout;
+    if (paymentStatus === "PAID") {
+      redirectTimer = setTimeout(() => {
+        setShowPaymentModal(false);
+        router.push("/user/purchase");
+      }, 5000);
+    }
+    return () => clearTimeout(redirectTimer);
+  }, [paymentStatus, router]);
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, "0");
+    const s = (seconds % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  const handleManualCheck = () => {
+    setIsCheckingManual(true);
+    setTimeout(() => {
+      setIsCheckingManual(false);
+      alert("Pembayaran belum terdeteksi. Silakan coba lagi.");
+    }, 1500);
+  };
+
+  // Dummy Product Data
+  const dummyProduct = {
+    name: "Paket Nasi Ayam Geprek Level 3",
+    organizer: "HIMAIF - Dies Natalis",
+    price: 15000,
+    quantity: 1,
+    imagePlaceholder: true
+  };
+
+  const handleCurrentLocation = () => {
+    setIsDetectingLocation(true);
+    setTimeout(() => {
+      setNewAddressDetail("Jl. Raya Kampus Unud, Jimbaran, Kec. Kuta Sel., Kabupaten Badung, Bali 80361");
+      setIsDetectingLocation(false);
+    }, 1500);
+  };
+
+  const handlePaymentSelect = (method: "qris" | "transfer" | "cod") => {
+    if (!deliveryMethod) {
+      setShowPaymentAlert(true);
+      return;
+    }
+    setShowPaymentAlert(false);
+    setPaymentMethod(method);
+  };
+
+  const handleCheckout = () => {
+    if (!deliveryMethod || !paymentMethod) return;
+
+    if (paymentMethod === "cod") {
+      setShowToast(true);
+      setTimeout(() => {
+        router.push("/user/purchase");
+      }, 2000);
+    } else {
+      setPaymentGatewayState("loading");
+      setPaymentStatus("PENDING");
+      setTimeLeft(300);
+      setIsCheckingManual(false);
+      setShowPaymentModal(true);
+      
+      // Simulasi loading 1.5 detik, lalu munculkan QRIS/VA
+      setTimeout(() => {
+        setPaymentGatewayState(paymentMethod === "qris" ? "qris" : "transfer");
+      }, 1500);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 pb-24">
+      <Navbar />
+
+      <div className="max-w-3xl mx-auto px-4 py-6 md:px-8 md:py-10">
+        {/* Tombol Kembali */}
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-2 text-slate-500 hover:text-blue-600 transition mb-6 font-medium text-sm"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          <span>Kembali</span>
+        </button>
+
+        <h1 className="text-2xl font-bold text-slate-900 mb-8">Checkout Pesanan</h1>
+
+        <div className="space-y-6">
+          {/* 1. Metode Pengambilan */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-blue-600" />
+              Metode Pengambilan
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* Card Select: Pick Up */}
+              <div 
+                onClick={() => setDeliveryMethod("pickup")}
+                className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${
+                  deliveryMethod === "pickup" 
+                    ? "border-blue-600 bg-blue-50" 
+                    : "border-slate-200 hover:border-blue-300"
+                }`}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className={`p-2 rounded-full ${deliveryMethod === "pickup" ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"}`}>
+                    <ShoppingBag className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className={`font-bold ${deliveryMethod === "pickup" ? "text-blue-900" : "text-slate-700"}`}>Pick Up</h3>
+                    <p className="text-xs text-slate-500">Ambil sendiri di stand</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card Select: Delivery */}
+              <div 
+                onClick={() => setDeliveryMethod("delivery")}
+                className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${
+                  deliveryMethod === "delivery" 
+                    ? "border-blue-600 bg-blue-50" 
+                    : "border-slate-200 hover:border-blue-300"
+                }`}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className={`p-2 rounded-full ${deliveryMethod === "delivery" ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"}`}>
+                    <Truck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className={`font-bold ${deliveryMethod === "delivery" ? "text-blue-900" : "text-slate-700"}`}>Delivery</h3>
+                    <p className="text-xs text-slate-500">Diantar ke lokasi Anda</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Dynamic Content based on Delivery Method */}
+            {deliveryMethod === "pickup" && (
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-1">Lokasi Stand</h4>
+                  <p className="text-sm text-slate-600">Stand FMIPA, Gedung A Lt.1, Universitas Udayana</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-700 mb-2">Pilih Jam Pengambilan</h4>
+                  <select 
+                    className="w-full md:w-1/2 border border-slate-300 rounded-lg px-3 py-2.5 bg-white text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={pickupTime}
+                    onChange={(e) => setPickupTime(e.target.value)}
+                  >
+                    <option value="" disabled>-- Pilih Jam --</option>
+                    <option value="09:00 - 11:00">09:00 - 11:00 WITA</option>
+                    <option value="12:00 - 14:00">12:00 - 14:00 WITA</option>
+                    <option value="15:00 - 17:00">15:00 - 17:00 WITA</option>
+                  </select>
+                  {deliveryMethod === "pickup" && pickupTime === "" && (
+                    <p className="text-red-500 text-xs mt-1.5">* Wajib memilih jam pengambilan</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {deliveryMethod === "delivery" && (
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 animate-in fade-in slide-in-from-top-2 duration-300">
+                {hasSavedAddress ? (
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="text-sm font-semibold text-slate-700">Alamat Pengiriman</h4>
+                      <button 
+                        className="text-xs text-blue-600 font-semibold hover:underline"
+                        onClick={() => setHasSavedAddress(false)}
+                      >
+                        Ganti / Tambah Baru
+                      </button>
+                    </div>
+                    <div className="bg-white border border-blue-200 rounded-lg p-3">
+                      <p className="font-bold text-sm text-slate-800">Kos Putra Jaya</p>
+                      <p className="text-xs text-slate-500 mt-1">Jalan Raya Kampus Unud, Jimbaran. Kamar No. 12 (Pagar Hitam)</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="text-sm font-semibold text-slate-700">Tambah Alamat Baru</h4>
+                      <button 
+                        className="text-xs text-blue-600 font-semibold hover:underline"
+                        onClick={() => setHasSavedAddress(true)}
+                      >
+                        Gunakan Alamat Tersimpan
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {/* Gunakan Lokasi Saat Ini Button */}
+                      <button 
+                        onClick={handleCurrentLocation}
+                        disabled={isDetectingLocation}
+                        className="w-full flex items-center justify-center gap-2 bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm font-semibold text-blue-600 hover:bg-slate-50 transition-colors disabled:opacity-70 disabled:cursor-not-allowed shadow-sm"
+                      >
+                        {isDetectingLocation ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Mendeteksi lokasi...
+                          </>
+                        ) : (
+                          <>
+                            <Navigation className="w-4 h-4" />
+                            Gunakan Lokasi Saat Ini
+                          </>
+                        )}
+                      </button>
+
+                      {/* Atau Divider */}
+                      <div className="flex items-center gap-3 py-1">
+                        <div className="h-[1px] bg-slate-200 flex-1"></div>
+                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Atau</span>
+                        <div className="h-[1px] bg-slate-200 flex-1"></div>
+                      </div>
+
+                      {/* Input Cari Alamat Peta */}
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Search className="h-4 w-4 text-slate-400" />
+                        </div>
+                        <input
+                          type="text"
+                          className="w-full border border-slate-300 rounded-lg pl-10 pr-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                          placeholder="Cari alamat menggunakan peta..."
+                        />
+                      </div>
+
+                      {/* Peta Google Maps Mockup */}
+                      <div className="w-full h-40 md:h-48 bg-slate-100 rounded-xl border border-slate-300 flex flex-col items-center justify-center text-slate-400 overflow-hidden relative">
+                        <Map className="w-12 h-12 mb-2 opacity-50" />
+                        <span className="text-xs font-medium px-4 text-center">Peta Google Maps akan dirender di sini</span>
+                        
+                        {/* Dummy map elements for visuals */}
+                        <div className="absolute top-2 right-2 flex flex-col gap-1">
+                          <div className="w-6 h-6 bg-white rounded shadow flex items-center justify-center text-[10px] font-bold text-slate-500">+</div>
+                          <div className="w-6 h-6 bg-white rounded shadow flex items-center justify-center text-[10px] font-bold text-slate-500">-</div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-medium text-slate-600 block mb-1 mt-2">Nama Tempat (Opsional)</label>
+                        <input type="text" placeholder="Contoh: Kos Putra Jaya" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-slate-600 block mb-1">Detail Alamat Lengkap *</label>
+                        <textarea 
+                          placeholder="Nama jalan, nomor rumah/kamar, patokan..." 
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none h-20"
+                          value={newAddressDetail}
+                          onChange={(e) => setNewAddressDetail(e.target.value)}
+                        />
+                        {deliveryMethod === "delivery" && !hasSavedAddress && newAddressDetail.trim() === "" && (
+                          <p className="text-red-500 text-xs mt-1.5">* Detail alamat lengkap wajib diisi untuk pengiriman</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 2. Rincian Produk */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5 text-blue-600" />
+              Rincian Produk
+            </h2>
+            
+            <div className="flex gap-4 items-center">
+              <div className="w-20 h-20 bg-slate-100 rounded-xl flex items-center justify-center border border-slate-200">
+                <ShoppingBag className="w-8 h-8 text-slate-300" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-slate-800">{dummyProduct.name}</h3>
+                <p className="text-xs text-slate-500 mb-2">{dummyProduct.organizer}</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold text-slate-700">{dummyProduct.quantity} x Rp {dummyProduct.price.toLocaleString("id-ID")}</span>
+                  <span className="font-bold text-blue-600">Rp {(dummyProduct.price * dummyProduct.quantity).toLocaleString("id-ID")}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Metode Pembayaran */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-blue-600" />
+              Metode Pembayaran
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div 
+                onClick={() => handlePaymentSelect("qris")}
+                className={`cursor-pointer rounded-xl border p-3 flex flex-col items-center justify-center gap-2 transition-all text-center ${
+                  paymentMethod === "qris" ? "border-blue-600 bg-blue-50" : "border-slate-200 hover:border-blue-300"
+                }`}
+              >
+                <QrCode className={`w-6 h-6 ${paymentMethod === "qris" ? "text-blue-600" : "text-slate-400"}`} />
+                <span className={`text-sm font-semibold ${paymentMethod === "qris" ? "text-blue-900" : "text-slate-600"}`}>QRIS</span>
+              </div>
+              
+              <div 
+                onClick={() => handlePaymentSelect("transfer")}
+                className={`cursor-pointer rounded-xl border p-3 flex flex-col items-center justify-center gap-2 transition-all text-center ${
+                  paymentMethod === "transfer" ? "border-blue-600 bg-blue-50" : "border-slate-200 hover:border-blue-300"
+                }`}
+              >
+                <CreditCard className={`w-6 h-6 ${paymentMethod === "transfer" ? "text-blue-600" : "text-slate-400"}`} />
+                <span className={`text-sm font-semibold ${paymentMethod === "transfer" ? "text-blue-900" : "text-slate-600"}`}>Transfer Bank</span>
+              </div>
+
+              <div 
+                onClick={() => handlePaymentSelect("cod")}
+                className={`cursor-pointer rounded-xl border p-3 flex flex-col items-center justify-center gap-2 transition-all text-center ${
+                  paymentMethod === "cod" ? "border-blue-600 bg-blue-50" : "border-slate-200 hover:border-blue-300"
+                }`}
+              >
+                <Wallet className={`w-6 h-6 ${paymentMethod === "cod" ? "text-blue-600" : "text-slate-400"}`} />
+                <span className={`text-sm font-semibold ${paymentMethod === "cod" ? "text-blue-900" : "text-slate-600"}`}>COD (Tunai)</span>
+              </div>
+            </div>
+
+            {showPaymentAlert && (
+              <div className="text-red-500 text-sm mt-3 flex items-center gap-1">
+                <AlertCircle className="w-4 h-4"/> Tolong pilih metode pengambilan terlebih dahulu.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Action Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
+        <div className="max-w-3xl mx-auto flex justify-between items-center">
+          <div>
+            <p className="text-sm text-slate-500 mb-0.5">Total Pembayaran</p>
+            <p className="text-xl font-extrabold text-blue-600">Rp {(dummyProduct.price * dummyProduct.quantity).toLocaleString("id-ID")}</p>
+          </div>
+          <button
+            onClick={handleCheckout}
+            disabled={!deliveryMethod || !paymentMethod}
+            className={`px-8 py-3 rounded-xl font-bold text-white transition-all shadow-sm ${
+              (!deliveryMethod || !paymentMethod)
+                ? "bg-slate-300 cursor-not-allowed"
+                : "bg-emerald-600 hover:bg-emerald-700 active:scale-95 hover:shadow-md"
+            }`}
+          >
+            Buat Pesanan
+          </button>
+        </div>
+      </div>
+
+      {/* TOAST: COD Success */}
+      {showToast && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-5 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+          <CheckCircle className="w-5 h-5 text-emerald-400" />
+          <span className="font-semibold text-sm">Pesanan COD berhasil dibuat! Mengalihkan...</span>
+        </div>
+      )}
+
+      {/* MODAL: Payment Gateway Simulation */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm animate-in fade-in p-4">
+          <div className="bg-white rounded-2xl p-6 md:p-8 max-w-sm w-full shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+            {paymentStatus === "PAID" ? (
+              <div className="flex flex-col items-center py-4">
+                <CheckCircle className="w-16 h-16 text-emerald-500 mb-4 animate-bounce" />
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Pembayaran Berhasil</h3>
+                <p className="text-sm text-slate-500 mb-4">Terima kasih, pesanan Anda sedang diproses.</p>
+                <p className="text-xs text-slate-400">Mengarahkan ke halaman pesanan otomatis...</p>
+              </div>
+            ) : paymentStatus === "EXPIRED" ? (
+              <div className="flex flex-col items-center py-4">
+                <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4">
+                  <span className="text-2xl font-bold">!</span>
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Pembayaran Kedaluwarsa</h3>
+                <p className="text-sm text-slate-500 mb-6">Waktu pembayaran telah habis. Silakan ulangi proses checkout.</p>
+                <button
+                  onClick={() => setShowPaymentModal(false)}
+                  className="w-full bg-slate-800 text-white font-bold py-3 px-4 rounded-xl hover:bg-slate-900 transition-all shadow-sm"
+                >
+                  Tutup
+                </button>
+              </div>
+            ) : paymentGatewayState === "loading" ? (
+              <>
+                <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-6"></div>
+                <h3 className="text-lg font-bold text-slate-800 mb-2">Memproses Pembayaran</h3>
+                <p className="text-sm text-slate-500">Mohon tunggu sebentar, kami sedang menyiapkan gateway pembayaran...</p>
+              </>
+            ) : paymentGatewayState === "qris" ? (
+              <>
+                <h3 className="text-xl font-bold text-slate-800 mb-1">Pembayaran QRIS</h3>
+                <div className="flex justify-between w-full mt-2 mb-4 bg-red-50 text-red-600 px-3 py-2 rounded-lg font-semibold border border-red-100 text-sm">
+                  <span>Sisa Waktu</span>
+                  <span className="font-mono">{formatTime(timeLeft)}</span>
+                </div>
+                
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4">
+                  {/* Simulasi Gambar QR Code */}
+                  <div className="w-48 h-48 bg-white border border-slate-300 rounded-lg flex items-center justify-center relative overflow-hidden">
+                    <div className="absolute inset-2 border-4 border-slate-800 rounded-md"></div>
+                    <QrCode className="w-24 h-24 text-slate-800" />
+                  </div>
+                  <div className="mt-3 text-lg font-extrabold text-blue-600">
+                    Rp {(dummyProduct.price * dummyProduct.quantity).toLocaleString("id-ID")}
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleManualCheck}
+                  disabled={isCheckingManual}
+                  className="w-full bg-white border-2 border-blue-600 text-blue-600 font-bold py-3 px-4 rounded-xl hover:bg-blue-50 active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed text-sm leading-tight"
+                >
+                  {isCheckingManual ? "Mengecek..." : "Klik ini jika pembayaran belum dinyatakan selesai"}
+                </button>
+              </>
+            ) : paymentGatewayState === "transfer" ? (
+              <>
+                <h3 className="text-xl font-bold text-slate-800 mb-1">Transfer Virtual Account</h3>
+                <div className="flex justify-between w-full mt-2 mb-4 bg-red-50 text-red-600 px-3 py-2 rounded-lg font-semibold border border-red-100 text-sm">
+                  <span>Sisa Waktu</span>
+                  <span className="font-mono">{formatTime(timeLeft)}</span>
+                </div>
+                
+                <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 mb-4 w-full text-left">
+                  <p className="text-xs text-slate-500 mb-1 font-semibold">Bank Tujuan</p>
+                  <p className="text-sm font-bold text-slate-800 mb-4">Bank BNI (ProkerMart)</p>
+
+                  <p className="text-xs text-slate-500 mb-1 font-semibold">Nomor Virtual Account</p>
+                  <div className="flex items-center justify-between bg-white border border-slate-300 px-3 py-2 rounded-lg mb-4">
+                    <span className="font-mono font-bold text-slate-800 tracking-wider">8273 1029 3847 1122</span>
+                    <button className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-md transition" title="Salin VA">
+                      <Copy className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-slate-500 mb-1 font-semibold">Total Pembayaran</p>
+                  <p className="text-lg font-extrabold text-blue-600">
+                    Rp {(dummyProduct.price * dummyProduct.quantity).toLocaleString("id-ID")}
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleManualCheck}
+                  disabled={isCheckingManual}
+                  className="w-full bg-white border-2 border-blue-600 text-blue-600 font-bold py-3 px-4 rounded-xl hover:bg-blue-50 active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed text-sm leading-tight"
+                >
+                  {isCheckingManual ? "Mengecek..." : "Klik ini jika pembayaran belum dinyatakan selesai"}
+                </button>
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}

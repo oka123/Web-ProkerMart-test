@@ -64,7 +64,13 @@ export function MobileHeader({
           }
           if (action === "chat") {
             return (
-              <button key={action} className="relative p-1">
+              <button
+                key={action}
+                onClick={() =>
+                  window.dispatchEvent(new CustomEvent("openProkerChat"))
+                }
+                className="relative p-1"
+              >
                 <MessageSquare className="w-6 h-6 text-primary-600" />
                 {chatCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-secondary-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">

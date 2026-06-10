@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { createClient } from "@/lib/supabase/client";
 
 interface Message {
   id: number;
@@ -115,7 +116,29 @@ export function Chat() {
   const [view, setView] = useState<"list" | "chat">("list");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [newMessage, setNewMessage] = useState("");
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    
+    // Get initial session
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+      setLoading(false);
+    });
+
+    // Listen to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   // Listen for global open event
   useEffect(() => {
@@ -141,12 +164,14 @@ export function Chat() {
     setNewMessage("");
   };
 
+  if (loading || !user) return null;
+
   return (
     <>
       {/* Floating Toggle Button (Desktop Only) */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="hidden md:flex fixed bottom-8 right-8 w-14 h-14 bg-primary-600 text-white rounded-full shadow-2xl items-center justify-center hover:bg-primary-700 hover:scale-105 active:scale-95 transition-all z-100 group"
+        className="hidden md:flex fixed bottom-12 right-8 w-14 h-14 bg-primary-600 text-white rounded-full shadow-2xl items-center justify-center hover:bg-primary-700 hover:scale-105 active:scale-95 transition-all z-100 group"
       >
         <AnimatePresence mode="wait">
           {isOpen ? (

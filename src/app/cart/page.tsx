@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 
 export default function CartPage() {
+  const router = useRouter();
   const [cartItems, setCartItems] = useState([
     {
       id: 1,
@@ -203,7 +205,9 @@ export default function CartPage() {
                   </span>
                 </div>
 
-                <button className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl hover:bg-blue-700 active:scale-[0.98] transition shadow-sm mb-3">
+                <button
+                  onClick={() => router.push('/checkout')}
+                  className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl hover:bg-blue-700 active:scale-[0.98] transition shadow-sm mb-3">
                   Lanjut ke Pembayaran
                 </button>
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { User, Package, Bell, Ticket, PencilLine, LogOut } from "lucide-react";
 import Image from "next/image";
+import { LogoutButton } from "../logout-button";
 
 const menuItems = [
   {
@@ -71,7 +72,7 @@ export function UserSidebar() {
         </div>
       </div>
 
-      <div className="flex flex-col justify-between h-[calc(70svh)]">
+      <div className="flex flex-col justify-between h-[calc(70svh)] w-fit">
         {/* Menu List */}
         <nav className="space-y-1">
           {menuItems.map((item) => {
@@ -124,11 +125,8 @@ export function UserSidebar() {
         </nav>
 
         {/* Logout Button */}
-        <div className="mt-8 pt-4 border-t border-slate-100">
-          <button className="flex items-center gap-3 px-3 py-2 w-full text-slate-600 hover:text-red-500 hover:bg-red-50 rounded-md transition-all group">
-            <LogOut className="w-5 h-5 group-hover:rotate-180 transition-transform duration-300" />
-            <span className="text-sm font-medium">Keluar</span>
-          </button>
+        <div className="mt-8 pt-4">
+          <LogoutButton className="flex items-center gap-3 px-3 py-2 w-full text-red-500 hover:text-red-600  rounded-md transition-all group border-none bg-white"></LogoutButton>
         </div>
       </div>
     </aside>

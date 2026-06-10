@@ -1,14 +1,7 @@
 "use client";
 
 import {
-  ShoppingCart,
-  MessageSquare,
-  Ticket,
-  Video,
-  Wallet,
   Info,
-  Bell,
-  ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";

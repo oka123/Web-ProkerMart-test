@@ -1,12 +1,84 @@
 import Link from "next/link";
+import Image from "next/image";
+import { cn } from "@/lib/utils";
+import LogoImage from "../../public/favicon/favicon.svg";
 
-export function Logo() {
+export interface LogoProps {
+  className?: string;
+  size?: "sm" | "md" | "lg";
+  theme?: "light" | "dark" | "blue" | "white";
+  href?: string;
+  hideText?: boolean;
+}
+
+export function Logo({
+  className,
+  size = "md",
+  theme = "light",
+  href = "/",
+  hideText = false,
+}: LogoProps) {
+  // Styles for the image icon size
+  const iconSizeClasses = {
+    sm: "w-6 h-6",
+    md: "w-8 h-8",
+    lg: "w-10 h-10",
+  };
+
+  const imageDimensions = {
+    sm: 24,
+    md: 32,
+    lg: 40,
+  };
+
+  // Applies CSS filters to change image color based on theme
+  const iconThemeClasses = {
+    light: "",
+    dark: "",
+    blue: "",
+    white: "brightness-0 invert drop-shadow-sm", // Makes the SVG completely white
+  };
+
+  // Styles for the "ProkerMart" text
+  const textSizeClasses = {
+    sm: "text-sm",
+    md: "text-xl",
+    lg: "text-xl",
+  };
+
+  const textThemeClasses = {
+    light: "text-slate-900",
+    dark: "text-white",
+    blue: "text-primary-600",
+    white: "text-white",
+  };
+
   return (
-    <Link href="/" className="flex items-center gap-2">
-      <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-        <span className="text-white font-bold text-xl">P</span>
-      </div>
-      <span className="font-bold text-xl text-primary-600">ProkerMart</span>
+    <Link
+      href={href}
+      className={cn(
+        `flex items-center ${size === "lg" ? "gap-3" : "gap-2"}`,
+        className,
+      )}
+    >
+      <Image
+        src={LogoImage}
+        alt="Logo ProkerMart"
+        width={imageDimensions[size]}
+        height={imageDimensions[size]}
+        className={cn("shrink-0", iconSizeClasses[size])}
+      />
+      {!hideText && (
+        <span
+          className={cn(
+            "font-bold truncate",
+            textSizeClasses[size],
+            textThemeClasses[theme],
+          )}
+        >
+          ProkerMart
+        </span>
+      )}
     </Link>
   );
 }

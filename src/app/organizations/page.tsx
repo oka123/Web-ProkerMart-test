@@ -59,10 +59,10 @@ export default function OrganizationsPage() {
 
       {/* Header */}
       <div className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16 text-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
           <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 mb-4">
-            Direktori{" "}
-            <span className="text-transparent bg-clip-text bg-linear-to-r from-primary-600 to-secondary-600">
+            Daftar{" "}
+            <span className="text-transparent bg-clip-text bg-linear-to-r from-primary-600 to-blue-600">
               Organisasi
             </span>
           </h1>

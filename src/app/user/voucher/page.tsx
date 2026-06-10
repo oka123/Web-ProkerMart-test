@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Ticket, Search, Clock } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { UserSidebar } from "@/components/user/UserSidebar";
@@ -9,48 +8,15 @@ import { MobileHeader } from "@/components/MobileHeader";
 const vouchers = [
   {
     id: 1,
-    title: "Diskon 10% s.d. Rp50RB",
-    minSpend: "Min. Blj Rp50RB",
-    expiry: "Berlaku dalam: 28 menit",
+    title: "Diskon 10% s.d. Rp2RB",
+    minSpend: "Min. Blj Rp30RB",
+    expiry: "Berlaku dalam: 7 hari",
     category: "SEMUA KATEGORI",
-    brand: "PROMO XTRA",
+    brand: "PROMO",
     badge: "Baru",
     type: "test",
     color: "bg-blue-600",
-  },
-  {
-    id: 2,
-    title: "Diskon s.d. 15% hingga Rp1JT",
-    minSpend: "Min. Blj Rp200RB",
-    expiry: "Berlaku dalam: 28 menit",
-    category: "KATEGORI PILIHAN",
-    brand: "PROMO XTRA+",
-    badge: "Baru",
-    type: "test",
-    color: "bg-blue-600",
-  },
-  {
-    id: 3,
-    title: "Diskon 33% s.d. Rp50RB",
-    minSpend: "Min. pembelian 3 produk",
-    expiry: "Berlaku dalam: 28 menit",
-    category: "FASHION",
-    brand: "PROMO XTRA",
-    badge: "Pemakaian Terbatas",
-    promoText: "Beli 2 Gratis 1",
-    type: "test",
-    color: "bg-blue-600",
-  },
-  {
-    id: 4,
-    title: "Diskon 30% s.d. Rp50RB",
-    minSpend: "Min. Blj Rp85RB",
-    expiry: "Berlaku dalam: 28 menit",
-    category: "KATEGORI PILIHAN",
-    brand: "VIDEO XTRA",
-    promoText: "Video XTRA",
-    type: "test",
-    color: "bg-blue-600",
+    promoText: null,
   },
 ];
 
@@ -161,9 +127,9 @@ export default function VoucherPage() {
                             <p className="text-[11px] lg:text-xs text-slate-500">
                               {voucher.minSpend}
                             </p>
-                            {voucher.promoText && (
+                            {voucher?.promoText && (
                               <p className="text-[10px] text-primary-600 border border-primary-600/30 bg-primary-50 px-1 rounded-sm w-fit">
-                                {voucher.promoText}
+                                {voucher?.promoText}
                               </p>
                             )}
                           </div>

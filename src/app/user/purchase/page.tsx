@@ -1,21 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Search,
-  MessageSquare,
   Store,
   ChevronRight,
   Truck,
-  ArrowLeft,
 } from "lucide-react";
-import Link from "next/link";
 import Image from "next/image";
 import { Navbar } from "@/components/Navbar";
 import { UserSidebar } from "@/components/user/UserSidebar";
 import { MobileHeader } from "@/components/MobileHeader";
-import { Chat } from "@/components/Chat";
 
 // --- Types ---
 interface OrderItem {

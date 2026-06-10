@@ -7,11 +7,13 @@ import {
   User,
   Menu,
   MessageSquare,
+  LogOut,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "./Logo";
 import { MobileHeader } from "./MobileHeader";
+import { createClient } from "@/lib/supabase/client";
 
 interface NavbarProps {
   variant?: "default" | "cart";
@@ -20,22 +22,24 @@ interface NavbarProps {
 export function Navbar({ variant = "default" }: NavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  // const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // useEffect(() => {
-  //   const handleClickOutside = (event: MouseEvent) => {
-  //     if (
-  //       userMenuRef.current &&
-  //       !userMenuRef.current.contains(event.target as Node)
-  //     ) {
-  //       setIsUserMenuOpen(false);
-  //     }
-  //   };
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsUserMenuOpen(false);
+      }
+    };
 
-  //   document.addEventListener("mousedown", handleClickOutside);
-  //   return () => document.removeEventListener("mousedown", handleClickOutside);
-  // }, []);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -44,6 +48,28 @@ export function Navbar({ variant = "default" }: NavbarProps) {
 
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    // Get initial session
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+      setLoading(false);
+    });
+
+    // Listen to auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   if (variant === "cart") {
@@ -114,101 +140,105 @@ export function Navbar({ variant = "default" }: NavbarProps) {
 
           {/* Actions */}
           <div className="hidden md:flex items-center space-x-4">
-            <button className="p-2 text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-full transition-colors">
+            {/* <button className="p-2 text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-full transition-colors">
               <Search className="w-5 h-5" />
-            </button>
-            <Link
-              href="/cart"
-              className="p-2 text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-full transition-colors relative"
-            >
-              <ShoppingCart className="w-5 h-5" />
-              <span className="absolute top-0 right-0 w-4 h-4 bg-secondary-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                2
-              </span>
-            </Link>
-            <div className="h-6 w-px bg-slate-300 mx-2"></div>
+            </button> */}
 
-            {/* Direct Login Link */}
-            <Link
-              href="/login"
-              className="text-sm font-medium text-slate-700 hover:text-primary-600 transition-colors"
-            >
-              Masuk
-            </Link>
-
-            {/* Profile Dropdown */}
-            <div
-              ref={userMenuRef}
-              className="relative"
-              // onMouseEnter={() => setIsUserMenuOpen(true)}
-              // onMouseLeave={() => setIsUserMenuOpen(false)}
-            >
-              <Link
-                href="/user"
-                className="block p-2 text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-full transition-colors cursor-pointer"
-              >
-                <User className="w-5 h-5" />
-              </Link>
-
-              {/* <AnimatePresence>
-                {isUserMenuOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-2 z-50"
+            {!loading &&
+              (user ? (
+                <>
+                  <Link
+                    href="/cart"
+                    className="p-2 text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-full transition-colors relative"
                   >
-                    <div className="px-4 py-2 border-b border-slate-50 mb-1">
-                      <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">
-                        Menu User
-                      </p>
-                    </div>
-                    <Link
-                      href="/user"
-                      className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                    <ShoppingCart className="w-5 h-5" />
+                    <span className="absolute top-0 right-0 w-4 h-4 bg-secondary-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                      2
+                    </span>
+                  </Link>
+
+                  {/* Profile / Auth State */}
+
+                  <div ref={userMenuRef} className="relative">
+                    <button
+                      onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                      className="block p-2 text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-full transition-colors cursor-pointer"
                     >
-                      Akun Saya
-                    </Link>
-                    <Link
-                      href="/user/purchase"
-                      className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
-                    >
-                      Pesanan Saya
-                    </Link>
-                    <div className="h-px bg-slate-50 my-1"></div>
-                    <Link
-                      href="/login"
-                      className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-red-500 hover:bg-slate-50 transition-colors"
-                    >
-                      <LogOut className="w-4 h-4 rotate-180" />
-                      Keluar
-                    </Link>
-                  </motion.div>
-                )}
-              </AnimatePresence> */}
-            </div>
+                      <User className="w-5 h-5" />
+                    </button>
+
+                    <AnimatePresence>
+                      {isUserMenuOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-2 z-50"
+                        >
+                          <Link
+                            href="/user"
+                            className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            Akun Saya
+                          </Link>
+                          <Link
+                            href="/user/purchase"
+                            className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            Pesanan Saya
+                          </Link>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/auth/login"
+                    className="text-sm font-medium text-slate-700 hover:text-primary-600 transition-colors"
+                  >
+                    Masuk
+                  </Link>
+                  <div className="w-px h-5 bg-slate-300"></div>
+                  <Link
+                    href="/auth/sign-up"
+                    className="text-sm font-medium text-slate-700 hover:text-primary-600 transition-colors"
+                  >
+                    Daftar
+                  </Link>
+                </>
+              ))}
           </div>
 
           {/* Mobile Actions */}
           <div className="flex md:hidden items-center gap-1">
-            <Link
-              href="/cart"
-              className="p-2 text-slate-500 active:text-primary-600 relative"
-            >
-              <ShoppingCart className="w-6 h-6" />
-              <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-secondary-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
-                2
-              </span>
-            </Link>
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent("openProkerChat"))}
-              className="p-2 text-slate-500 active:text-primary-600 relative"
-            >
-              <MessageSquare className="w-6 h-6" />
-              <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
-                9
-              </span>
-            </button>
+            {!loading && user ? (
+              <>
+                <Link
+                  href="/cart"
+                  className="p-2 text-slate-500 active:text-primary-600 relative"
+                >
+                  <ShoppingCart className="w-6 h-6" />
+                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-secondary-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
+                    2
+                  </span>
+                </Link>
+                <button
+                  onClick={() =>
+                    window.dispatchEvent(new CustomEvent("openProkerChat"))
+                  }
+                  className="p-2 text-slate-500 active:text-primary-600 relative"
+                >
+                  <MessageSquare className="w-6 h-6" />
+                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
+                    9
+                  </span>
+                </button>
+              </>
+            ) : null}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="p-2 text-slate-500 hover:text-primary-600 rounded-md"
@@ -229,15 +259,24 @@ export function Navbar({ variant = "default" }: NavbarProps) {
             className="md:hidden border-t border-slate-200 bg-white shadow-xl"
           >
             <div className="px-4 pt-4 pb-6 space-y-2">
-              <Link
-                href="/user"
-                className="flex items-center gap-3 px-4 py-3 rounded-lg text-base font-semibold text-primary-600 active:bg-primary-100 transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <User className="w-5 h-5" />
-                Akun Saya
-              </Link>
-              <div className="h-px bg-slate-100 my-2 mx-2"></div>
+              {!loading && user ? (
+                <Link
+                  href="/user"
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-base font-semibold text-primary-600 active:bg-primary-100 transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <User className="w-5 h-5" />
+                  Akun Saya
+                </Link>
+              ) : (
+                <Link
+                  href="/auth/login"
+                  className="block px-4 py-2 rounded-md text-base font-semibold text-primary-600 hover:bg-slate-50"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Masuk
+                </Link>
+              )}
               <Link
                 href="/explore"
                 className="block px-4 py-2 rounded-md text-base font-medium text-slate-700 hover:text-primary-600 hover:bg-slate-50"
