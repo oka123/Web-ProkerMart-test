@@ -33,8 +33,7 @@ export const PRICE_PRESETS = [
 
 const METODE_OPTIONS = [
   { value: "pickup", label: "🏪 Pickup" },
-  { value: "keliling", label: "🚶 Keliling" },
-  { value: "pre-order", label: "📋 Pre-order" },
+  { value: "delivery", label: "🚚 Delivery" },
 ];
 
 // ─── Count active filters (for badge) ────────────────────────────────────────

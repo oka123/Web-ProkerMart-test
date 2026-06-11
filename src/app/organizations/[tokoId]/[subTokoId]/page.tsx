@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { ArrowLeft, MapPin, Store, Package, Loader2, Clock, Calendar } from "lucide-react";
 import { motion } from "framer-motion";
@@ -13,14 +13,13 @@ type SubTokoDetail = {
   name: string;
   description: string;
   fotoSampul: string | null;
-  metodeJualan: string;
   jadwalOperasional: string;
   tokoId: string;
   tokoName: string;
   products: any[];
 };
 
-export default function SubTokoDetailPage() {
+function SubTokoDetailContent() {
   const params = useParams();
   const router = useRouter();
   const tokoId = params.tokoId as string;
@@ -46,7 +45,6 @@ export default function SubTokoDetailPage() {
             nama_proker,
             deskripsi,
             foto_sampul,
-            metode_jualan,
             jadwal_operasional,
             id_toko,
             toko ( nama_toko ),
@@ -77,7 +75,6 @@ export default function SubTokoDetailPage() {
           name: data.nama_proker,
           description: data.deskripsi || "Belum ada deskripsi untuk proker ini.",
           fotoSampul: data.foto_sampul,
-          metodeJualan: data.metode_jualan || "Tidak ditentukan",
           jadwalOperasional: data.jadwal_operasional || "Setiap Hari",
           tokoId: data.id_toko,
           tokoName: tokoData ? tokoData.nama_toko : "Unknown",
@@ -161,10 +158,7 @@ export default function SubTokoDetailPage() {
                   <Package className="w-5 h-5 text-indigo-500 mr-2" />
                   <span className="font-semibold">{subToko.products.length}</span> &nbsp;Produk
                 </div>
-                <div className="flex items-center text-slate-700 bg-slate-50 px-4 py-2 rounded-lg border border-slate-100">
-                  <MapPin className="w-5 h-5 text-rose-500 mr-2" />
-                  <span className="font-semibold capitalize">{subToko.metodeJualan}</span>
-                </div>
+
                 <div className="flex items-center text-slate-700 bg-slate-50 px-4 py-2 rounded-lg border border-slate-100">
                   <Calendar className="w-5 h-5 text-emerald-500 mr-2" />
                   <span className="font-semibold">{subToko.jadwalOperasional}</span>
@@ -240,5 +234,19 @@ export default function SubTokoDetailPage() {
 
       </main>
     </div>
+  );
+}
+
+export default function SubTokoDetailPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-10 h-10 animate-spin text-primary-500" />
+        </div>
+      </div>
+    }>
+      <SubTokoDetailContent />
+    </Suspense>
   );
 }

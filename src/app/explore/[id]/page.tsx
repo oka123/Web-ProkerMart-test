@@ -135,11 +135,11 @@ async function ProductData({ params }: { params: Promise<{ id: string }> }) {
                     {tokoName}
                   </span>
                 </div>
-                {product.sub_toko?.metode_jualan && (
+                {product.metode_jualan && (
                   <div className="bg-slate-50 rounded-lg px-2 py-1.5 border border-slate-100">
                     <span className="text-slate-500">Metode: </span>
                     <span className="font-semibold text-slate-800 capitalize">
-                      {product.sub_toko.metode_jualan}
+                      {product.metode_jualan.replace(/,/g, " & ")}
                     </span>
                   </div>
                 )}

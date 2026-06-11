@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { ArrowLeft, MapPin, Store, Package, Loader2, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
@@ -18,7 +18,7 @@ type TokoDetail = {
   allProducts: any[];
 };
 
-export default function TokoDetailPage() {
+function TokoDetailContent() {
   const params = useParams();
   const router = useRouter();
   const tokoId = params.tokoId as string;
@@ -294,5 +294,19 @@ export default function TokoDetailPage() {
 
       </main>
     </div>
+  );
+}
+
+export default function TokoDetailPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-10 h-10 animate-spin text-primary-500" />
+        </div>
+      </div>
+    }>
+      <TokoDetailContent />
+    </Suspense>
   );
 }

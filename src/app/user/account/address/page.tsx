@@ -73,7 +73,7 @@ export default function AddressPage() {
   const fetchAddresses = async (uid: string) => {
     try {
       const { data, error } = await supabase
-        .from("alamat_pengguna")
+        .from("alamat_pembeli")
         .select("*")
         .eq("id_pengguna", uid)
         .order("is_utama", { ascending: false })
@@ -162,7 +162,7 @@ export default function AddressPage() {
       // If setting as main, we need to remove main from others first
       if (formData.is_utama) {
         await supabase
-          .from("alamat_pengguna")
+          .from("alamat_pembeli")
           .update({ is_utama: false })
           .eq("id_pengguna", userId)
           .eq("is_utama", true);
@@ -171,7 +171,7 @@ export default function AddressPage() {
       if (editingAddress) {
         // Update
         const { error } = await supabase
-          .from("alamat_pengguna")
+          .from("alamat_pembeli")
           .update(formData)
           .eq("id_alamat", editingAddress.id_alamat);
         if (error) throw error;
@@ -179,7 +179,7 @@ export default function AddressPage() {
       } else {
         // Insert
         const { error } = await supabase
-          .from("alamat_pengguna")
+          .from("alamat_pembeli")
           .insert([{ ...formData, id_pengguna: userId }]);
         if (error) throw error;
         toast.success("Alamat berhasil ditambahkan");
@@ -203,7 +203,7 @@ export default function AddressPage() {
     if (addressToDelete) {
       try {
         const { error } = await supabase
-          .from("alamat_pengguna")
+          .from("alamat_pembeli")
           .delete()
           .eq("id_alamat", addressToDelete);
 
@@ -223,14 +223,14 @@ export default function AddressPage() {
     try {
       // Remove previous main
       await supabase
-        .from("alamat_pengguna")
+        .from("alamat_pembeli")
         .update({ is_utama: false })
         .eq("id_pengguna", userId)
         .eq("is_utama", true);
 
       // Set new main
       const { error } = await supabase
-        .from("alamat_pengguna")
+        .from("alamat_pembeli")
         .update({ is_utama: true })
         .eq("id_alamat", id);
 
