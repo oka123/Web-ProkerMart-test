@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
 const PRODUCT_SELECT = `
-  id_produk, nama_produk, deskripsi, harga, stok, foto, kategori, status_aktif, tgl_dibuat, metode_jualan,
+  id_produk, nama_produk, deskripsi, harga, stok, foto, kategori, status_aktif, tgl_dibuat, metode_jualan, preorder,
   sub_toko (
     id_sub_toko, nama_proker, jadwal_operasional,
     toko (

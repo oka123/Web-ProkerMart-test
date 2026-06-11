@@ -10,7 +10,6 @@ import {
   LogOut,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "./Logo";
 import { MobileHeader } from "./MobileHeader";
@@ -37,7 +36,7 @@ export function Navbar({ variant = "default" }: NavbarProps) {
       try {
         const items = await getCartItems();
         // Menjumlahkan berdasarkan properti 'jumlah'
-        const total = items.length;
+        const total = items.reduce((sum, item) => sum + item.jumlah, 0);
         setCartCount(total);
       } catch (error) {
         console.error("Gagal mengambil jumlah keranjang:", error);
@@ -76,23 +75,6 @@ export function Navbar({ variant = "default" }: NavbarProps) {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
-
-  useEffect(() => {
-    const fetchCartCount = async () => {
-      // Mengambil hanya kolom 'quantity' untuk efisiensi
-      const { data, error } = await supabase
-        .from('cart_items')
-        .select('quantity');
-
-      if (data && !error) {
-        // Menjumlahkan semua quantity barang di keranjang
-        const totalQuantity = data.reduce((sum, item) => sum + item.quantity, 0);
-        setCartCount(totalQuantity);
-      }
-    };
-
-    fetchCartCount();
   }, []);
 
   if (variant === "cart") {

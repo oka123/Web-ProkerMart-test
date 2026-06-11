@@ -26,10 +26,11 @@ export default function CartPage() {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
 
   const handleSelectItem = (id: string) => {
-    setSelectedItems((prev) =>
-      prev.includes(id)
-        ? prev.filter((itemId) => itemId !== id) // Hapus centang
-        : [...prev, id] // Tambah centang
+    setSelectedItems(
+      (prev) =>
+        prev.includes(id)
+          ? prev.filter((itemId) => itemId !== id) // Hapus centang
+          : [...prev, id], // Tambah centang
     );
   };
 
@@ -47,11 +48,13 @@ export default function CartPage() {
       return;
     }
     // Ambil detail barang yang dicentang saja
-    const selectedCartItems = cartItems.filter((item) => selectedItems.includes(item.id_keranjang));
+    const selectedCartItems = cartItems.filter((item) =>
+      selectedItems.includes(item.id_keranjang),
+    );
 
     // Simpan ke localStorage agar bisa dipanggil di halaman /checkout
-    localStorage.setItem('checkoutItems', JSON.stringify(selectedCartItems));
-    router.push('/checkout');
+    localStorage.setItem("checkoutItems", JSON.stringify(selectedCartItems));
+    router.push("/checkout");
   };
 
   const fetchCart = useCallback(async () => {
@@ -69,8 +72,8 @@ export default function CartPage() {
     // Optimistic UI update
     setCartItems((prev) =>
       prev.map((item) =>
-        item.id_keranjang === cartId ? { ...item, jumlah: newQuantity } : item
-      )
+        item.id_keranjang === cartId ? { ...item, jumlah: newQuantity } : item,
+      ),
     );
 
     setUpdatingIds((prev) => new Set(prev).add(cartId));
@@ -92,9 +95,7 @@ export default function CartPage() {
 
   const handleRemoveItem = async (cartId: string) => {
     // Optimistic UI update
-    setCartItems((prev) =>
-      prev.filter((item) => item.id_keranjang !== cartId)
-    );
+    setCartItems((prev) => prev.filter((item) => item.id_keranjang !== cartId));
 
     const result = await removeFromCart(cartId);
 
@@ -105,12 +106,17 @@ export default function CartPage() {
     }
   };
 
-  const selectedCartItems = cartItems.filter((item) => selectedItems.includes(item.id_keranjang));
+  const selectedCartItems = cartItems.filter((item) =>
+    selectedItems.includes(item.id_keranjang),
+  );
 
-  const totalItems = selectedCartItems.reduce((acc, item) => acc + item.jumlah, 0);
+  const totalItems = selectedCartItems.reduce(
+    (acc, item) => acc + item.jumlah,
+    0,
+  );
   const subtotal = selectedCartItems.reduce(
     (acc, item) => acc + Number(item.produk.harga) * item.jumlah,
-    0
+    0,
   );
   const platformFee = 2000;
   const grandTotal = subtotal > 0 ? subtotal + platformFee : 0;
@@ -181,19 +187,23 @@ export default function CartPage() {
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex items-center gap-3">
                 <input
                   type="checkbox"
-                  checked={selectedItems.length === cartItems.length && cartItems.length > 0}
+                  checked={
+                    selectedItems.length === cartItems.length &&
+                    cartItems.length > 0
+                  }
                   onChange={handleSelectAll}
                   className="w-5 h-5 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
                 />
-                <span className="text-sm font-semibold text-slate-700">Pilih Semua Barang</span>
+                <span className="text-sm font-semibold text-slate-700">
+                  Pilih Semua Barang
+                </span>
               </div>
               {cartItems.map((item) => {
                 const product = item.produk;
                 const orgName =
                   product.sub_toko?.toko?.organisasi?.nama_organisasi ??
                   "Organisasi";
-                const prokerName =
-                  product.sub_toko?.nama_proker ?? "Proker";
+                const prokerName = product.sub_toko?.nama_proker ?? "Proker";
 
                 return (
                   <div
@@ -249,7 +259,7 @@ export default function CartPage() {
                             onClick={() =>
                               handleUpdateQuantity(
                                 item.id_keranjang,
-                                Math.max(1, item.jumlah - 1)
+                                Math.max(1, item.jumlah - 1),
                               )
                             }
                             disabled={updatingIds.has(item.id_keranjang)}
@@ -268,7 +278,7 @@ export default function CartPage() {
                             onClick={() =>
                               handleUpdateQuantity(
                                 item.id_keranjang,
-                                Math.min(product.stok, item.jumlah + 1)
+                                Math.min(product.stok, item.jumlah + 1),
                               )
                             }
                             disabled={updatingIds.has(item.id_keranjang)}
@@ -331,7 +341,7 @@ export default function CartPage() {
                 <button
                   onClick={handleCheckout}
                   disabled={selectedItems.length === 0}
-                  className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl hover:bg-blue-700 active:scale-[0.98] disabled:cursor-not-allowed transition transition shadow-sm mb-3"
+                  className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl hover:bg-blue-700 active:scale-[0.98] disabled:cursor-not-allowed! transition shadow-sm mb-3 disabled:opacity-50"
                 >
                   Lanjut ke Pembayaran
                 </button>

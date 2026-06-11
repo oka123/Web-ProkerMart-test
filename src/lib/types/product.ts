@@ -25,6 +25,7 @@ export interface Product {
   status_aktif: boolean;
   tgl_dibuat: string;
   metode_jualan: string | null;
+  preorder: boolean;
   sub_toko: SubTokoInfo;
 }
 

@@ -13,6 +13,7 @@ const PRODUCT_SELECT = `
   status_aktif,
   tgl_dibuat,
   metode_jualan,
+  preorder,
   sub_toko (
     id_sub_toko,
     nama_proker,

@@ -73,7 +73,6 @@ export async function getCartItems(): Promise<CartItem[]> {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      console.error("[Cart - getCartItems] User not authenticated");
       return [];
     }
 
