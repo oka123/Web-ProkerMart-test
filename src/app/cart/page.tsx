@@ -23,6 +23,36 @@ export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+
+  const handleSelectItem = (id: string) => {
+    setSelectedItems((prev) =>
+      prev.includes(id)
+        ? prev.filter((itemId) => itemId !== id) // Hapus centang
+        : [...prev, id] // Tambah centang
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedItems.length === cartItems.length) {
+      setSelectedItems([]); // Uncheck all
+    } else {
+      setSelectedItems(cartItems.map((item) => item.id_keranjang)); // Check all
+    }
+  };
+
+  const handleCheckout = () => {
+    if (selectedItems.length === 0) {
+      alert("Pilih minimal 1 barang untuk di-checkout!");
+      return;
+    }
+    // Ambil detail barang yang dicentang saja
+    const selectedCartItems = cartItems.filter((item) => selectedItems.includes(item.id_keranjang));
+
+    // Simpan ke localStorage agar bisa dipanggil di halaman /checkout
+    localStorage.setItem('checkoutItems', JSON.stringify(selectedCartItems));
+    router.push('/checkout');
+  };
 
   const fetchCart = useCallback(async () => {
     setIsLoading(true);
@@ -75,8 +105,10 @@ export default function CartPage() {
     }
   };
 
-  const totalItems = cartItems.reduce((acc, item) => acc + item.jumlah, 0);
-  const subtotal = cartItems.reduce(
+  const selectedCartItems = cartItems.filter((item) => selectedItems.includes(item.id_keranjang));
+
+  const totalItems = selectedCartItems.reduce((acc, item) => acc + item.jumlah, 0);
+  const subtotal = selectedCartItems.reduce(
     (acc, item) => acc + Number(item.produk.harga) * item.jumlah,
     0
   );
@@ -146,6 +178,15 @@ export default function CartPage() {
           <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
             {/* KOLOM KIRI: Daftar Produk (Lebar 2/3 di layar besar) */}
             <div className="w-full lg:w-2/3 space-y-4">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={selectedItems.length === cartItems.length && cartItems.length > 0}
+                  onChange={handleSelectAll}
+                  className="w-5 h-5 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                />
+                <span className="text-sm font-semibold text-slate-700">Pilih Semua Barang</span>
+              </div>
               {cartItems.map((item) => {
                 const product = item.produk;
                 const orgName =
@@ -157,8 +198,14 @@ export default function CartPage() {
                 return (
                   <div
                     key={item.id_keranjang}
-                    className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5 flex gap-4 sm:gap-6"
+                    className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5 flex gap-4 sm:gap-6 items-center"
                   >
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.includes(item.id_keranjang)}
+                      onChange={() => handleSelectItem(item.id_keranjang)}
+                      className="w-5 h-5 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer flex-none"
+                    />
                     {/* Gambar Produk */}
                     <div className="w-24 h-24 sm:w-28 sm:h-28 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center flex-none overflow-hidden">
                       {product.foto ? (
@@ -282,8 +329,9 @@ export default function CartPage() {
                 </div>
 
                 <button
-                  onClick={() => router.push("/checkout")}
-                  className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl hover:bg-blue-700 active:scale-[0.98] transition shadow-sm mb-3"
+                  onClick={handleCheckout}
+                  disabled={selectedItems.length === 0}
+                  className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl hover:bg-blue-700 active:scale-[0.98] disabled:cursor-not-allowed transition transition shadow-sm mb-3"
                 >
                   Lanjut ke Pembayaran
                 </button>
