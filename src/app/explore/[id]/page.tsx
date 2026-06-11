@@ -150,6 +150,7 @@ async function ProductData({ params }: { params: Promise<{ id: string }> }) {
 
             {/* Interactive Part — Client Component */}
             <ProductActions
+              productId={product.id_produk}
               price={Number(product.harga)}
               stock={product.stok}
               productName={product.nama_produk}

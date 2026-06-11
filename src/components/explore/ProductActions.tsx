@@ -1,25 +1,42 @@
 "use client";
 
 import { useState } from "react";
-import { ShoppingBag, Package, CheckCircle } from "lucide-react";
+import { ShoppingBag, Package, CheckCircle, Loader2, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { addToCart } from "@/lib/supabase/queries/cart";
 
 interface ProductActionsProps {
+  productId: string;
   price: number;
   stock: number;
   productName: string;
 }
 
-export function ProductActions({ price, stock, productName }: ProductActionsProps) {
+export function ProductActions({ productId, price, stock, productName }: ProductActionsProps) {
   const router = useRouter();
   const [quantity, setQuantity] = useState(1);
   const [showNotification, setShowNotification] = useState(false);
+  const [notificationError, setNotificationError] = useState<string | null>(null);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
 
   const totalPrice = price * quantity;
 
-  const handleAddToCart = () => {
-    setShowNotification(true);
-    setTimeout(() => setShowNotification(false), 3000);
+  const handleAddToCart = async () => {
+    setIsAddingToCart(true);
+    setNotificationError(null);
+
+    const result = await addToCart(productId, quantity);
+
+    setIsAddingToCart(false);
+
+    if (result.success) {
+      setShowNotification(true);
+      setNotificationError(null);
+      setTimeout(() => setShowNotification(false), 3000);
+    } else {
+      setNotificationError(result.error ?? "Gagal menambahkan ke keranjang");
+      setTimeout(() => setNotificationError(null), 4000);
+    }
   };
 
   const handleCheckout = () => {
@@ -83,11 +100,15 @@ export function ProductActions({ price, stock, productName }: ProductActionsProp
           <button
             type="button"
             onClick={handleAddToCart}
-            disabled={stock === 0}
+            disabled={stock === 0 || isAddingToCart}
             className="flex-1 md:flex-none md:w-40 bg-emerald-600 text-white font-bold py-2.5 px-4 rounded-xl hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <ShoppingBag className="w-4 h-4" />
-            Keranjang
+            {isAddingToCart ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <ShoppingBag className="w-4 h-4" />
+            )}
+            {isAddingToCart ? "Menambahkan..." : "Keranjang"}
           </button>
           <button
             type="button"
@@ -100,12 +121,22 @@ export function ProductActions({ price, stock, productName }: ProductActionsProp
         </div>
       </div>
 
-      {/* Toast Notification */}
+      {/* Success Toast Notification */}
       {showNotification && (
-        <div className="fixed bottom-8 right-8 z-50 bg-slate-900 text-white px-5 py-4 rounded-xl shadow-2xl flex items-center gap-3">
+        <div className="fixed bottom-8 right-8 z-50 bg-slate-900 text-white px-5 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-4">
           <CheckCircle className="w-5 h-5 text-emerald-400" />
           <span className="font-semibold text-sm">
             {productName} berhasil ditambahkan ke keranjang!
+          </span>
+        </div>
+      )}
+
+      {/* Error Toast Notification */}
+      {notificationError && (
+        <div className="fixed bottom-8 right-8 z-50 bg-red-600 text-white px-5 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-4">
+          <AlertCircle className="w-5 h-5 text-red-200" />
+          <span className="font-semibold text-sm">
+            {notificationError}
           </span>
         </div>
       )}
