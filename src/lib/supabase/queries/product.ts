@@ -12,10 +12,10 @@ const PRODUCT_SELECT = `
   kategori,
   status_aktif,
   tgl_dibuat,
+  metode_jualan,
   sub_toko (
     id_sub_toko,
     nama_proker,
-    metode_jualan,
     jadwal_operasional,
     toko (
       id_toko,

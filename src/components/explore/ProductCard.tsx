@@ -10,11 +10,13 @@ function getProductTag(metode: string | null | undefined): {
   color: string;
 } {
   const m = metode?.toLowerCase() ?? "";
-  if (m.includes("pre-order"))
-    return { label: "Pre-order", color: "bg-amber-100 text-amber-700" };
-  if (m.includes("keliling"))
-    return { label: "Keliling", color: "bg-blue-100 text-blue-700" };
-  return { label: "Ready Stock", color: "bg-emerald-100 text-emerald-700" };
+  if (m.includes("pickup") && m.includes("delivery"))
+    return { label: "Pickup & Delivery", color: "bg-blue-100 text-blue-700" };
+  if (m.includes("delivery"))
+    return { label: "Delivery", color: "bg-indigo-100 text-indigo-700" };
+  if (m.includes("pickup"))
+    return { label: "Pickup", color: "bg-emerald-100 text-emerald-700" };
+  return { label: "Ready Stock", color: "bg-amber-100 text-amber-700" };
 }
 
 interface ProductCardProps {
@@ -24,7 +26,7 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, index }: ProductCardProps) {
-  const tag = getProductTag(product.sub_toko?.metode_jualan);
+  const tag = getProductTag(product.metode_jualan);
   const orgName =
     product.sub_toko?.toko?.organisasi?.nama_organisasi ?? "-";
   const prokerName = product.sub_toko?.nama_proker ?? "-";

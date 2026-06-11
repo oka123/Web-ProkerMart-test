@@ -46,7 +46,7 @@ export function NearbyShopCard({
         <div className="flex items-center text-xs text-slate-600 gap-2 mb-2">
           <div className="flex items-center text-amber-500 font-medium">
             <Star className="w-3.5 h-3.5 fill-current mr-1" />
-            {rating}{" "}
+            {Number(rating).toFixed(1)}{" "}
             <span className="text-slate-400 font-normal ml-1">
               ({reviewCount})
             </span>
