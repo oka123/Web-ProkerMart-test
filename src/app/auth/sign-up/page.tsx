@@ -52,7 +52,7 @@ export default function Page() {
       </div>
 
       {/* Right form panel */}
-      <div className="flex-1 flex items-center justify-center p-6 md:p-12 bg-white overflow-y-auto overscroll-none">
+      <div className="flex-1 flex items-center justify-center p-6 md:p-12 bg-white overflow-y-auto">
         <div className="w-full max-w-md">
           <SignUpForm />
         </div>

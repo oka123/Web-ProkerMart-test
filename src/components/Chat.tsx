@@ -346,7 +346,7 @@ export function Chat() {
                     </div>
 
                     {/* Contacts List */}
-                    <div className="flex-1 overflow-y-scroll overscroll-none divide-y divide-slate-50">
+                    <div className="flex-1 overflow-y-auto overscroll-none divide-y divide-slate-50">
                       {mockContacts.map((contact) => (
                         <button
                           key={contact.id}
@@ -404,7 +404,7 @@ export function Chat() {
                     {/* Messages Area */}
                     <div
                       ref={scrollRef}
-                      className="flex-1 p-4 space-y-4 overflow-y-scroll overscroll-none"
+                      className="flex-1 p-4 space-y-4 overflow-y-auto overscroll-none"
                     >
                       <div className="text-center py-2">
                         <span className="text-[10px] bg-slate-200/50 text-slate-500 px-3 py-1 rounded-full uppercase tracking-wider font-semibold">
