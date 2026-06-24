@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import {
   ShoppingBag,
@@ -69,7 +70,9 @@ export default function CartPage() {
   }, []);
 
   useEffect(() => {
-    fetchCart();
+    queueMicrotask(() => {
+      fetchCart();
+    });
   }, [fetchCart]);
 
   const handleUpdateQuantity = async (cartId: string, newQuantity: number) => {
@@ -262,13 +265,14 @@ export default function CartPage() {
                       className="w-5 h-5 text-blue-600 accent-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer flex-none"
                     />
                     {/* Gambar Produk */}
-                    <div className="w-24 h-24 sm:w-28 sm:h-28 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center flex-none overflow-hidden">
+                    <div className="w-24 h-24 sm:w-28 sm:h-28 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center flex-none overflow-hidden relative">
                       {product.foto ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <Image
                           src={product.foto}
                           alt={product.nama_produk}
-                          className="w-full h-full object-cover"
+                          fill
+                          className="object-cover"
+                          unoptimized
                         />
                       ) : (
                         <ShoppingBag className="w-8 h-8 text-slate-300" />

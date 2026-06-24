@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -20,7 +21,9 @@ export function PwaInstallPrompt() {
     const dismissedTime = localStorage.getItem("pwa-prompt-dismissed");
     const now = Date.now();
     if (dismissedTime && now - parseInt(dismissedTime, 10) < cooldown) {
-      setShowPrompt(false);
+      queueMicrotask(() => {
+        setShowPrompt(false);
+      });
     }
   }, [pathname, cooldown]);
 

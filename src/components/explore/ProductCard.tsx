@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { addToCart } from "@/lib/supabase/queries/cart";
 import type { Product } from "@/lib/types/product";
@@ -79,11 +80,12 @@ export function ProductCard({ product, index }: ProductCardProps) {
           {/* Image */}
           <div className="aspect-square bg-slate-100 relative overflow-hidden flex items-center justify-center">
             {product.foto ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={product.foto}
                 alt={product.nama_produk}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                fill
+                className="object-cover group-hover:scale-105 transition-transform duration-500"
+                unoptimized
               />
             ) : (
               <ShoppingBag className="w-12 h-12 text-slate-300 group-hover:scale-110 transition-transform duration-500" />

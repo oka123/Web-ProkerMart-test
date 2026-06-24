@@ -1,17 +1,25 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-const midtransClient = require('midtrans-client');
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
+import midtransClient from "midtrans-client";
 
 // const supabase = createClient(
 //   process.env.NEXT_PUBLIC_SUPABASE_URL!,
 //   process.env.SUPABASE_SERVICE_ROLE_KEY!
 // );
 
-async function bersihkanKeranjangJikaPerlu(supabase: any, jalur_checkout: string, idUserAsli: string, items: any[]) {
-  if (jalur_checkout !== 'keranjang') return;
+async function bersihkanKeranjangJikaPerlu(
+  supabase: any,
+  jalur_checkout: string,
+  idUserAsli: string,
+  items: any[],
+) {
+  if (jalur_checkout !== "keranjang") return;
 
   try {
-    const daftarIdProduk = items?.map((item: any) => item.produk?.id_produk) ?? [];
+    const daftarIdProduk =
+      items?.map((item: any) => item.produk?.id_produk) ?? [];
     if (daftarIdProduk.length > 0) {
       const { error: deleteCartError } = await supabase
         .from("keranjang")
@@ -35,8 +43,17 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     console.log("Struktur item[0]:", JSON.stringify(body.items?.[0], null, 2));
-    const { total_harga, nama_kustomer, email_kustomer, items,
-      metode_pengambilan, id_pengguna, metode_pembayaran, jalur_checkout } = body;
+    const {
+      total_harga,
+      nama_kustomer,
+      email_kustomer,
+      items,
+      metode_pengambilan,
+      metode_pembayaran,
+      jalur_checkout,
+      alamat_pengambilan,
+      tgl_ambil,
+    } = body;
 
     const authResponse = await supabase.auth.getUser();
     const idUserAsli = authResponse.data.user?.id;
@@ -44,7 +61,7 @@ export async function POST(request: Request) {
     if (!idUserAsli) {
       return NextResponse.json(
         { error: "Sesi login tidak ditemukan. Silakan login ulang." },
-        { status: 401 }
+        { status: 401 },
       );
     }
     // ─── 1. Buat order_id unik yang akan menjembatani DB & Midtrans ──────────
@@ -52,66 +69,118 @@ export async function POST(request: Request) {
 
     // Ambil id_sub_toko dari item pertama
     // Catatan: sesuaikan jika struktur item berbeda
-    const id_sub_toko = items?.[0]?.produk?.sub_toko?.id_sub_toko ?? items?.[0]?.produk?.id_sub_toko ?? null;
+    const id_sub_toko =
+      items?.[0]?.produk?.sub_toko?.id_sub_toko ??
+      items?.[0]?.produk?.id_sub_toko ??
+      null;
 
     if (!id_sub_toko) {
       return NextResponse.json(
-        { error: "Gagal membuat pesanan: Data toko tidak ditemukan pada item ini." },
-        { status: 400 }
+        {
+          error:
+            "Gagal membuat pesanan: Data toko tidak ditemukan pada item ini.",
+        },
+        { status: 400 },
       );
     }
 
-    if (metode_pembayaran === 'cod') {
+    const dbDeliveryMethod = metode_pengambilan;
+
+    if (metode_pembayaran === "cod") {
       console.log("Memulai proses simpan COD ke database...");
-      const { error: dbError } = await supabase
+      const { data: insertedOrder, error: dbError } = await supabase
         .from("pesanan")
         .insert({
           kode_unik: order_id,
           total_harga: Math.round(total_harga),
-          metode_pengambilan: metode_pengambilan,
-          metode_pembayaran: "cod",            // Simpan metode pembayarannya
-          status_pesanan: "menunggu_konfirmasi", // Status khusus untuk COD
+          metode_pengambilan: dbDeliveryMethod,
+          metode_pembayaran: "cod",
+          status_pesanan: "menunggu_konfirmasi",
           tgl_pesan: new Date().toISOString(),
           id_sub_toko: id_sub_toko,
           id_pengguna: idUserAsli,
-        });
+          alamat_pengambilan: alamat_pengambilan || null,
+          tgl_ambil: tgl_ambil || null,
+        })
+        .select("id_pesanan")
+        .single();
 
       if (dbError) {
         console.error("Gagal simpan pesanan COD ke DB:", dbError.message);
-        return NextResponse.json({ error: "Gagal membuat pesanan COD" }, { status: 500 });
+        return NextResponse.json(
+          { error: "Gagal membuat pesanan COD", detail: dbError.message },
+          { status: 500 },
+        );
       }
 
-      console.log(`Pesanan COD ${order_id} sukses disimpan ke database!`);
+      console.log(
+        `Pesanan COD ${order_id} sukses disimpan ke database! ID: ${insertedOrder.id_pesanan}`,
+      );
+
+      // Simpan detail_pesanan
+      const detailInserts = items.map((item: any) => ({
+        id_pesanan: insertedOrder.id_pesanan,
+        id_produk: item.produk?.id_produk ?? item.id_produk,
+        jumlah: Number(item.jumlah),
+        harga_satuan: Number(item.produk?.harga ?? item.harga),
+        sub_total:
+          Number(item.jumlah) * Number(item.produk?.harga ?? item.harga),
+      }));
+
+      const { error: detailError } = await supabase
+        .from("detail_pesanan")
+        .insert(detailInserts);
+
+      if (detailError) {
+        console.error(
+          "Gagal simpan detail pesanan COD ke DB:",
+          detailError.message,
+        );
+        return NextResponse.json(
+          {
+            error: "Gagal menyimpan item pesanan COD",
+            detail: detailError.message,
+          },
+          { status: 500 },
+        );
+      }
 
       // Hapus produk dari keranjang setelah COD berhasil disimpan menggunakan helper
-      await bersihkanKeranjangJikaPerlu(supabase, jalur_checkout, idUserAsli, items);
+      await bersihkanKeranjangJikaPerlu(
+        supabase,
+        jalur_checkout,
+        idUserAsli,
+        items,
+      );
 
       // JANGAN PANGGIL MIDTRANS. Langsung kembalikan respon sukses ke frontend
       return NextResponse.json({
         success: true,
         isCod: true,
-        message: "Pesanan COD berhasil dibuat!"
+        message: "Pesanan COD berhasil dibuat!",
       });
     }
 
     // ─── 2. Simpan pesanan ke Supabase dengan status 'pending' ───────────────
     //        Ini harus dilakukan SEBELUM minta token ke Midtrans,
     //        supaya saat webhook datang, data pesanannya sudah ada di DB.
-    const { error: dbError } = await supabase
+    const { data: insertedOrder, error: dbError } = await supabase
       .from("pesanan")
       .insert({
         kode_unik: order_id,
         total_harga: Math.round(total_harga),
-        metode_pengambilan: metode_pengambilan,
+        metode_pengambilan: dbDeliveryMethod,
+        metode_pembayaran: metode_pembayaran,
         status_pesanan: "menunggu_pembayaran",
         tgl_pesan: new Date().toISOString(),
         id_sub_toko: id_sub_toko,
-
-        // TODO: Ganti dengan id user yang sedang login
-        // Contoh jika pakai Supabase Auth:
-        // id_pengguna: (await supabase.auth.getUser()).data.user?.id
         id_pengguna: idUserAsli,
-      });
+        alamat_pengambilan: alamat_pengambilan || null,
+        tgl_ambil: tgl_ambil || null,
+      })
+      .select("id_pesanan")
+      .single();
+
     console.log("DB Error:", dbError);
     console.log("Order ID yang dicoba insert:", order_id);
 
@@ -120,31 +189,57 @@ export async function POST(request: Request) {
       console.error("Gagal simpan pesanan ke DB:", dbError.message);
       return NextResponse.json(
         { error: "Gagal membuat pesanan", detail: dbError.message },
-        { status: 500 }
+        { status: 500 },
+      );
+    }
+
+    // Simpan detail_pesanan
+    const detailInserts = items.map((item: any) => ({
+      id_pesanan: insertedOrder.id_pesanan,
+      id_produk: item.produk?.id_produk ?? item.id_produk,
+      jumlah: Number(item.jumlah),
+      harga_satuan: Number(item.produk?.harga ?? item.harga),
+      sub_total: Number(item.jumlah) * Number(item.produk?.harga ?? item.harga),
+    }));
+
+    const { error: detailError } = await supabase
+      .from("detail_pesanan")
+      .insert(detailInserts);
+
+    if (detailError) {
+      console.error("Gagal simpan detail pesanan ke DB:", detailError.message);
+      return NextResponse.json(
+        { error: "Gagal menyimpan item pesanan", detail: detailError.message },
+        { status: 500 },
       );
     }
 
     // Logika Penghapusan barang di keranjang ketika sudah klik tambah pesanan (menggunakan helper)
-    await bersihkanKeranjangJikaPerlu(supabase, jalur_checkout, idUserAsli, items);
+    await bersihkanKeranjangJikaPerlu(
+      supabase,
+      jalur_checkout,
+      idUserAsli,
+      items,
+    );
 
     // ─── 3. Baru minta token ke Midtrans dengan order_id yang sama ───────────
     const snap = new midtransClient.Snap({
       isProduction: false,
-      serverKey: process.env.MIDTRANS_SERVER_KEY,
-      clientKey: process.env.MIDTRANS_CLIENT_KEY
+      serverKey: process.env.MIDTRANS_SERVER_KEY || "",
+      clientKey: process.env.MIDTRANS_CLIENT_KEY || "",
     });
 
-
-    const item_details = items?.map((item: any) => ({
-      id: item.produk?.id_produk ?? "ITEM",
-      price: Math.round(Number(item.produk?.harga)), // Pastikan dibulatkan jadi Integer
-      quantity: Number(item.jumlah),
-      name: item.produk?.nama_produk?.substring(0, 50) ?? "Produk", // Midtrans membatasi nama max 50 karakter
-    })) ?? [];
+    const item_details =
+      items?.map((item: any) => ({
+        id: item.produk?.id_produk ?? "ITEM",
+        price: Math.round(Number(item.produk?.harga)), // Pastikan dibulatkan jadi Integer
+        quantity: Number(item.jumlah),
+        name: item.produk?.nama_produk?.substring(0, 50) ?? "Produk", // Midtrans membatasi nama max 50 karakter
+      })) ?? [];
 
     // 2. Hitung total harga murni dari seluruh barang
     const totalHargaBarang = item_details.reduce((total: number, item: any) => {
-      return total + (item.price * item.quantity);
+      return total + item.price * item.quantity;
     }, 0);
 
     // 3. Hitung apakah ada selisih antara total_harga dari frontend dengan total murni barang
@@ -170,8 +265,23 @@ export async function POST(request: Request) {
       });
     }
 
+    let enabled_payments: string[] = [];
+    if (metode_pembayaran === "qris") {
+      enabled_payments = ["gopay", "shopeepay", "ovo", "other_qris"];
+    } else if (metode_pembayaran === "transfer") {
+      enabled_payments = [
+        "bca_va",
+        "bni_va",
+        "bri_va",
+        "mandiri_va",
+        "permata_va",
+      ];
+    }
+
+    const origin = new URL(request.url).origin;
+
     // 5. Susun parameter Midtrans dengan data yang sudah sinkron 100%
-    const parameter = {
+    const parameter: any = {
       transaction_details: {
         order_id: order_id,
         gross_amount: gross_amount, // Dijamin sama dengan total sum dari item_details
@@ -183,22 +293,35 @@ export async function POST(request: Request) {
       item_details: item_details, // Tetap digunakan dengan aman!
 
       callbacks: {
-        finish: "http://localhost:3000/user/purchase",
-        error: "http://localhost:3000/checkout",
-        pending: "http://localhost:3000/user/purchase"
-      }
+        finish: `${origin}/user/purchase`,
+        error: `${origin}/checkout`,
+        pending: `${origin}/user/purchase`,
+      },
     };
 
+    if (enabled_payments.length > 0) {
+      parameter.enabled_payments = enabled_payments;
+    }
+
     const transaction = await snap.createTransaction(parameter);
+
+    // Update snap_token di tabel pesanan
+    const { error: updateTokenError } = await supabase
+      .from("pesanan")
+      .update({ snap_token: transaction.token })
+      .eq("id_pesanan", insertedOrder.id_pesanan);
+
+    if (updateTokenError) {
+      console.error("Gagal update snap_token:", updateTokenError);
+    }
+
     return NextResponse.json({ token: transaction.token });
-
-
   } catch (error: any) {
     console.error("Error di API checkout:", error.message);
     console.error("GAGAL DARI SDK MIDTRANS:", error.message);
     return NextResponse.json(
       { error: "Gagal memproses pembayaran", detail: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,22 +1,16 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import {
-  Search,
-  Store,
-  ChevronRight,
-  Truck,
-  Loader2,
-  Star,
-  X,
-} from "lucide-react";
+import { Search, Store, Truck, Loader2, Star, X } from "lucide-react";
 import Image from "next/image";
 import { Navbar } from "@/components/Navbar";
 import { UserSidebar } from "@/components/user/UserSidebar";
 import { MobileHeader } from "@/components/MobileHeader";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import Script from "next/script";
 
 interface OrderItem {
   id_produk: string;
@@ -44,6 +38,7 @@ interface Order {
     rating: number;
     komentar: string | null;
   } | null;
+  snap_token?: string | null;
 }
 
 const tabs = [
@@ -112,7 +107,7 @@ export default function PurchasePage() {
   const [isSubmittingRating, setIsSubmittingRating] = useState(false);
   const [isReadOnlyRating, setIsReadOnlyRating] = useState(false);
 
-  async function fetchOrders() {
+  const fetchOrders = useCallback(async () => {
     try {
       const {
         data: { user },
@@ -131,6 +126,7 @@ export default function PurchasePage() {
           kode_unik,
           total_harga,
           status_pesanan,
+          snap_token,
           sub_toko (
             id_toko,
             nama_proker
@@ -169,6 +165,7 @@ export default function PurchasePage() {
           statusLabel: mapStatusToTab(p.status_pesanan),
           statusText: getStatusText(p.status_pesanan),
           totalPrice: p.total_harga,
+          snap_token: p.snap_token,
           isRated: p.ulasan && p.ulasan.length > 0,
           ratingDetail:
             p.ulasan && p.ulasan.length > 0
@@ -177,6 +174,7 @@ export default function PurchasePage() {
                   komentar: p.ulasan[0].komentar,
                 }
               : null,
+
           items:
             p.detail_pesanan?.map((dp: any) => ({
               id: dp.id_detail,
@@ -197,11 +195,13 @@ export default function PurchasePage() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [router, supabase]);
 
   useEffect(() => {
-    fetchOrders();
-  }, [router, supabase]);
+    queueMicrotask(() => {
+      fetchOrders();
+    });
+  }, [fetchOrders]);
 
   const handleCancelOrder = async (orderId: string) => {
     if (!confirm("Apakah Anda yakin ingin membatalkan pesanan ini?")) return;
@@ -245,6 +245,32 @@ export default function PurchasePage() {
       alert("Gagal menyelesaikan pesanan. Silakan coba lagi.");
     } finally {
       setIsLoading(false);
+    }
+  };
+  const handlePayNow = (token?: string | null) => {
+    if (!token) {
+      alert("Token pembayaran tidak ditemukan. Silakan hubungi admin.");
+      return;
+    }
+    if ((window as any).snap) {
+      (window as any).snap.pay(token, {
+        onSuccess: function () {
+          alert("Pembayaran berhasil!");
+          fetchOrders();
+        },
+        onPending: function () {
+          alert("Menunggu pembayaran Anda!");
+          fetchOrders();
+        },
+        onError: function () {
+          alert("Pembayaran gagal!");
+        },
+        onClose: function () {
+          console.log("Pop-up pembayaran ditutup.");
+        },
+      });
+    } else {
+      alert("Sistem pembayaran belum siap. Silakan refresh halaman.");
     }
   };
 
@@ -387,6 +413,11 @@ export default function PurchasePage() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f5] flex flex-col font-sans text-slate-800 ">
+      <Script
+        src="https://app.sandbox.midtrans.com/snap/snap.js"
+        data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
+        strategy="lazyOnload"
+      />
       <div className="hidden lg:block">
         <Navbar />
       </div>
@@ -591,9 +622,13 @@ export default function PurchasePage() {
                               Batalkan Pesanan
                             </button>
                             <button
-                              onClick={() =>
-                                router.push(`/user/purchase/${order.id}`)
-                              }
+                              onClick={() => {
+                                if (order.snap_token) {
+                                  handlePayNow(order.snap_token);
+                                } else {
+                                  router.push(`/user/purchase/${order.id}`);
+                                }
+                              }}
                               className="flex-1 sm:flex-none px-4 py-2 bg-primary-600 text-white text-xs sm:text-sm font-medium rounded-sm shadow-md hover:bg-primary-700 whitespace-nowrap"
                             >
                               Bayar Sekarang

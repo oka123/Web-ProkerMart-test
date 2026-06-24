@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import { createBrowserClient } from "@supabase/ssr";
 
 type TokoDetail = {
@@ -164,12 +166,14 @@ function TokoDetailContent() {
           </button>
 
           <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-            <div className="w-24 h-24 rounded-2xl bg-primary-50 flex items-center justify-center text-primary-600 font-bold text-3xl shadow-sm shrink-0 border border-primary-100 overflow-hidden">
+            <div className="w-24 h-24 rounded-2xl bg-primary-50 flex items-center justify-center text-primary-600 font-bold text-3xl shadow-sm shrink-0 border border-primary-100 overflow-hidden relative">
               {toko.logo ? (
-                <img
+                <Image
                   src={toko.logo}
                   alt={toko.name}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  unoptimized
                 />
               ) : (
                 toko.name.substring(0, 2).toUpperCase()
@@ -300,10 +304,12 @@ function TokoDetailContent() {
                     <div className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl hover:border-primary-300 transition-all">
                       <div className="aspect-square bg-slate-100 relative overflow-hidden">
                         {product.foto ? (
-                          <img
+                          <Image
                             src={product.foto}
                             alt={product.nama_produk}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform duration-500"
+                            unoptimized
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-slate-300">

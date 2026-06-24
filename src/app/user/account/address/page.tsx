@@ -1,21 +1,14 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  Plus,
-  MapPin,
-  ChevronRight,
-  Trash2,
-  MapPinned,
-  X,
-  Loader2,
-} from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Plus, MapPin, Trash2, MapPinned, X, Loader2 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { UserSidebar } from "@/components/user/UserSidebar";
 import { MobileHeader } from "@/components/MobileHeader";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-hot-toast";
 import dynamic from "next/dynamic";
 
@@ -40,8 +33,14 @@ interface Address {
   longitude: number | null;
 }
 
-export default function AddressPage() {
+import { Suspense } from "react";
+
+function AddressPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const actionParam = searchParams.get("action");
+  const idParam = searchParams.get("id");
+  const returnUrl = searchParams.get("return_url");
   const supabase = createClient();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -53,6 +52,7 @@ export default function AddressPage() {
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
   const [addressToDelete, setAddressToDelete] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const hasHandledQuery = useRef(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -70,21 +70,24 @@ export default function AddressPage() {
     longitude: 115.1765,
   });
 
-  const fetchAddresses = async (uid: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("alamat_pembeli")
-        .select("*")
-        .eq("id_pengguna", uid)
-        .order("is_utama", { ascending: false })
-        .order("tgl_dibuat", { ascending: false });
+  const fetchAddresses = useCallback(
+    async (uid: string) => {
+      try {
+        const { data, error } = await supabase
+          .from("alamat_pembeli")
+          .select("*")
+          .eq("id_pengguna", uid)
+          .order("is_utama", { ascending: false })
+          .order("tgl_dibuat", { ascending: false });
 
-      if (error) throw error;
-      setAddresses(data || []);
-    } catch (error) {
-      console.error("Error fetching addresses:", error);
-    }
-  };
+        if (error) throw error;
+        setAddresses(data || []);
+      } catch (error) {
+        console.error("Error fetching addresses:", error);
+      }
+    },
+    [supabase],
+  );
 
   useEffect(() => {
     async function init() {
@@ -100,48 +103,68 @@ export default function AddressPage() {
       setIsLoading(false);
     }
     init();
-  }, [router, supabase]);
+  }, [router, supabase, fetchAddresses]);
 
-  const handleOpenModal = (address: Address | null = null) => {
-    setEditingAddress(address);
-    if (address) {
-      setFormData({
-        nama_penerima: address.nama_penerima,
-        no_telepon: address.no_telepon,
-        provinsi: address.provinsi,
-        kota: address.kota,
-        kecamatan: address.kecamatan,
-        kode_pos: address.kode_pos,
-        detail_jalan: address.detail_jalan,
-        catatan_tambahan: address.catatan_tambahan || "",
-        tipe_alamat: address.tipe_alamat || "Rumah",
-        is_utama: address.is_utama,
-        latitude: address.latitude || -8.7963,
-        longitude: address.longitude || 115.1765,
-      });
-    } else {
-      setFormData({
-        nama_penerima: "",
-        no_telepon: "",
-        provinsi: "",
-        kota: "",
-        kecamatan: "",
-        kode_pos: "",
-        detail_jalan: "",
-        catatan_tambahan: "",
-        tipe_alamat: "Rumah",
-        is_utama: addresses.length === 0, // First address is automatically main
-        latitude: -8.7963,
-        longitude: 115.1765,
-      });
-    }
-    setIsModalOpen(true);
-  };
+  const handleOpenModal = useCallback(
+    (address: Address | null = null) => {
+      setEditingAddress(address);
+      if (address) {
+        setFormData({
+          nama_penerima: address.nama_penerima,
+          no_telepon: address.no_telepon,
+          provinsi: address.provinsi,
+          kota: address.kota,
+          kecamatan: address.kecamatan,
+          kode_pos: address.kode_pos,
+          detail_jalan: address.detail_jalan,
+          catatan_tambahan: address.catatan_tambahan || "",
+          tipe_alamat: address.tipe_alamat || "Rumah",
+          is_utama: address.is_utama,
+          latitude: address.latitude || -8.7963,
+          longitude: address.longitude || 115.1765,
+        });
+      } else {
+        setFormData({
+          nama_penerima: "",
+          no_telepon: "",
+          provinsi: "",
+          kota: "",
+          kecamatan: "",
+          kode_pos: "",
+          detail_jalan: "",
+          catatan_tambahan: "",
+          tipe_alamat: "Rumah",
+          is_utama: addresses.length === 0, // First address is automatically main
+          latitude: -8.7963,
+          longitude: 115.1765,
+        });
+      }
+      setIsModalOpen(true);
+    },
+    [addresses.length],
+  );
 
   const handleCloseModal = () => {
     setEditingAddress(null);
     setIsModalOpen(false);
+    if (returnUrl) {
+      router.push(returnUrl);
+    }
   };
+
+  useEffect(() => {
+    if (!isLoading && !hasHandledQuery.current && addresses.length >= 0) {
+      if (actionParam === "add") {
+        setTimeout(() => handleOpenModal(), 0);
+      } else if (actionParam === "edit" && idParam) {
+        const addrToEdit = addresses.find((a) => a.id_alamat === idParam);
+        if (addrToEdit) {
+          setTimeout(() => handleOpenModal(addrToEdit), 0);
+        }
+      }
+      hasHandledQuery.current = true;
+    }
+  }, [isLoading, actionParam, idParam, addresses, handleOpenModal]);
 
   const handleSaveAddress = async () => {
     if (
@@ -210,7 +233,7 @@ export default function AddressPage() {
         if (error) throw error;
         toast.success("Alamat berhasil dihapus");
         await fetchAddresses(userId);
-      } catch (error: any) {
+      } catch {
         toast.error("Gagal menghapus alamat");
       } finally {
         setIsDeleteModalOpen(false);
@@ -237,7 +260,7 @@ export default function AddressPage() {
       if (error) throw error;
       toast.success("Alamat utama diperbarui");
       await fetchAddresses(userId);
-    } catch (error) {
+    } catch {
       toast.error("Gagal mengatur alamat utama");
     }
   };
@@ -665,5 +688,19 @@ export default function AddressPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function AddressPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center">
+          <Loader2 className="w-10 h-10 text-primary-600 animate-spin" />
+        </div>
+      }
+    >
+      <AddressPageContent />
+    </Suspense>
   );
 }

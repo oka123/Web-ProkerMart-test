@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   ChevronLeft,
@@ -9,9 +10,6 @@ import {
   Receipt,
   Clock,
   Info,
-  ShieldCheck,
-  Copy,
-  CheckCircle2,
   Package,
   Truck,
   Star,
@@ -25,6 +23,7 @@ import { UserSidebar } from "@/components/user/UserSidebar";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import Script from "next/script";
 
 interface OrderDetail {
   id_pesanan: string;
@@ -61,6 +60,7 @@ interface OrderDetail {
     rating: number;
     komentar: string | null;
   } | null;
+  snap_token?: string | null;
 }
 
 const mapStatusToStepIndex = (status: string) => {
@@ -113,7 +113,7 @@ function OrderDetailContent() {
   const [isSubmittingRating, setIsSubmittingRating] = useState(false);
   const [isReadOnlyRating, setIsReadOnlyRating] = useState(false);
 
-  async function fetchOrderDetail() {
+  const fetchOrderDetail = useCallback(async () => {
     try {
       const {
         data: { user },
@@ -136,6 +136,7 @@ function OrderDetailContent() {
           tgl_ambil,
           alamat_pengambilan,
           metode_pengambilan,
+          snap_token,
           id_sub_toko,
           sub_toko (
             id_toko,
@@ -177,10 +178,6 @@ function OrderDetailContent() {
       const tokoId = subTokoObj?.id_toko || "";
 
       // Dummy calculations for UI completeness based on screenshots
-      const itemsTotal = pesanan.detail_pesanan.reduce(
-        (sum: number, dp: any) => sum + dp.jumlah * dp.harga_satuan,
-        0,
-      );
       const shippingFee = pesanan.metode_pengambilan === "pickup" ? 0 : 12000;
       const serviceFee = 1000;
       const discount = pesanan.metode_pengambilan === "pickup" ? 0 : -12000;
@@ -200,6 +197,8 @@ function OrderDetailContent() {
         storeName: storeName,
         storeId: pesanan.id_sub_toko,
         tokoId: tokoId,
+        snap_token: pesanan.snap_token,
+
         items: pesanan.detail_pesanan.map((dp: any) => ({
           id: dp.id_detail,
           id_produk: dp.produk.id_produk,
@@ -239,13 +238,15 @@ function OrderDetailContent() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [id, router, supabase]);
 
   useEffect(() => {
     if (id) {
-      fetchOrderDetail();
+      queueMicrotask(() => {
+        fetchOrderDetail();
+      });
     }
-  }, [id, router, supabase]);
+  }, [id, fetchOrderDetail]);
 
   const handleCancelOrder = async () => {
     if (!order) return;
@@ -294,7 +295,36 @@ function OrderDetailContent() {
     }
   };
 
-  const handleBuyAgain = async (items: Array<{ id_produk: string; quantity: number }>) => {
+  const handlePayNow = (token?: string | null) => {
+    if (!token) {
+      alert("Token pembayaran tidak ditemukan. Silakan hubungi admin.");
+      return;
+    }
+    if ((window as any).snap) {
+      (window as any).snap.pay(token, {
+        onSuccess: function () {
+          alert("Pembayaran berhasil!");
+          fetchOrderDetail();
+        },
+        onPending: function () {
+          alert("Menunggu pembayaran Anda!");
+          fetchOrderDetail();
+        },
+        onError: function () {
+          alert("Pembayaran gagal!");
+        },
+        onClose: function () {
+          console.log("Pop-up pembayaran ditutup.");
+        },
+      });
+    } else {
+      alert("Sistem pembayaran belum siap. Silakan refresh halaman.");
+    }
+  };
+
+  const handleBuyAgain = async (
+    items: Array<{ id_produk: string; quantity: number }>,
+  ) => {
     try {
       setIsLoading(true);
       const {
@@ -461,6 +491,11 @@ function OrderDetailContent() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f5] flex flex-col font-sans text-slate-800 pb-20 md:pb-0">
+      <Script
+        src="https://app.sandbox.midtrans.com/snap/snap.js"
+        data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
+        strategy="lazyOnload"
+      />
       <div className="hidden lg:block">
         <Navbar />
       </div>
@@ -787,7 +822,10 @@ function OrderDetailContent() {
                     >
                       Batalkan Pesanan
                     </button>
-                    <button className="flex-1 md:flex-none px-6 py-2.5 bg-primary-600 text-white font-medium rounded hover:bg-primary-700 shadow-md transition-colors">
+                    <button
+                      onClick={() => handlePayNow(order.snap_token)}
+                      className="flex-1 md:flex-none px-6 py-2.5 bg-primary-600 text-white font-medium rounded hover:bg-primary-700 shadow-md transition-colors"
+                    >
                       Bayar Sekarang
                     </button>
                   </>
@@ -881,7 +919,9 @@ function OrderDetailContent() {
             <div className="p-4 space-y-4">
               <div className="text-center space-y-1">
                 <p className="text-xs text-slate-500 uppercase tracking-wider">
-                  {isReadOnlyRating ? "Sub-toko yang Dinilai" : "Menilai Sub-toko"}
+                  {isReadOnlyRating
+                    ? "Sub-toko yang Dinilai"
+                    : "Menilai Sub-toko"}
                 </p>
                 <p className="font-bold text-slate-800 text-base">
                   {order.storeName}
@@ -917,7 +957,9 @@ function OrderDetailContent() {
                 </label>
                 <textarea
                   value={ratingComment}
-                  onChange={(e) => !isReadOnlyRating && setRatingComment(e.target.value)}
+                  onChange={(e) =>
+                    !isReadOnlyRating && setRatingComment(e.target.value)
+                  }
                   disabled={isReadOnlyRating}
                   placeholder={
                     isReadOnlyRating

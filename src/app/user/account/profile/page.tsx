@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ChevronRight, Camera, Pencil, Loader2 } from "lucide-react";
+import { ChevronRight, Camera, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { Navbar } from "@/components/Navbar";
 import { UserSidebar } from "@/components/user/UserSidebar";

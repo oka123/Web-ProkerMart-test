@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Navbar } from "@/components/Navbar";
-import { ArrowRight, ShoppingBag, Store, Zap, ShieldCheck, Loader2 } from "lucide-react";
+import { ArrowRight, Store, Zap, ShieldCheck, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { useEffect, useState } from "react";

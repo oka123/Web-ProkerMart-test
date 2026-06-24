@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ShoppingBag, MapPin, ChevronRight, Clock } from "lucide-react";
+import Image from "next/image";
+import { ShoppingBag, ChevronRight, Clock } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { ProductActions } from "@/components/explore/ProductActions";
 import { ProductReviews } from "@/components/explore/ProductReviews";
@@ -34,8 +35,8 @@ async function ProductData({ params }: { params: Promise<{ id: string }> }) {
 
   const reviews = await getReviewsBySubToko(product.sub_toko.id_sub_toko);
 
-  const orgName =
-    product.sub_toko?.toko?.organisasi?.nama_organisasi ?? "Organisasi";
+  // const orgName =
+  //   product.sub_toko?.toko?.organisasi?.nama_organisasi ?? "Organisasi";
   const prokerName = product.sub_toko?.nama_proker ?? "Proker";
   const tokoName = product.sub_toko?.toko?.nama_toko ?? "-";
 
@@ -73,13 +74,14 @@ async function ProductData({ params }: { params: Promise<{ id: string }> }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
           {/* Left Column - Image */}
           <div className="bg-slate-50 border-b md:border-b-0 md:border-r border-slate-200 p-8 md:pt-12 flex items-start justify-center min-h-75 md:min-h-105">
-            <div className="w-full max-w-70 aspect-square bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center gap-3 overflow-hidden">
+            <div className="w-full max-w-70 aspect-square bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center gap-3 overflow-hidden relative">
               {product.foto ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={product.foto}
                   alt={product.nama_produk}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  unoptimized
                 />
               ) : (
                 <>

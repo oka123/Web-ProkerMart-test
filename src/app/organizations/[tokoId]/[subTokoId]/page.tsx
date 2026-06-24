@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
@@ -5,15 +6,14 @@ import { Suspense, useEffect, useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import {
   ArrowLeft,
-  MapPin,
   Store,
   Package,
   Loader2,
-  Clock,
   Calendar,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import { createBrowserClient } from "@supabase/ssr";
 
 type SubTokoDetail = {
@@ -146,10 +146,12 @@ function SubTokoDetailContent() {
         {/* Cover Photo */}
         <div className="h-48 md:h-64 w-full bg-slate-200 relative overflow-hidden">
           {subToko.fotoSampul ? (
-            <img
+            <Image
               src={subToko.fotoSampul}
               alt={subToko.name}
-              className="w-full h-full object-cover"
+              fill
+              className="object-cover"
+              unoptimized
             />
           ) : (
             <div className="w-full h-full bg-linear-to-r from-indigo-500 to-purple-600 flex items-center justify-center opacity-80">
@@ -237,10 +239,12 @@ function SubTokoDetailContent() {
                     <div className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl hover:border-indigo-300 transition-all flex flex-col h-full">
                       <div className="aspect-square bg-slate-100 relative overflow-hidden shrink-0">
                         {product.foto ? (
-                          <img
+                          <Image
                             src={product.foto}
                             alt={product.nama_produk}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform duration-500"
+                            unoptimized
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-slate-300">
