@@ -1,22 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import {
-  ShoppingCart,
-  Search,
-  User,
-  Menu,
-  MessageSquare,
-  LogOut,
-} from "lucide-react";
+import { ShoppingCart, Search, User, Menu, MessageSquare } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "./Logo";
 import { MobileHeader } from "./MobileHeader";
 import { createClient } from "@/lib/supabase/client";
 import { getCartItems } from "@/lib/supabase/queries/cart";
-
-
+import { logout } from "./logout-button";
 
 interface NavbarProps {
   variant?: "default" | "cart";
@@ -35,8 +27,10 @@ export function Navbar({ variant = "default" }: NavbarProps) {
     const fetchCartCount = async () => {
       try {
         const items = await getCartItems();
+        console.log(items);
+
         // Menjumlahkan berdasarkan properti 'jumlah'
-        const total = items.reduce((sum, item) => sum + item.jumlah, 0);
+        const total = items.length;
         setCartCount(total);
       } catch (error) {
         console.error("Gagal mengambil jumlah keranjang:", error);
@@ -44,6 +38,11 @@ export function Navbar({ variant = "default" }: NavbarProps) {
     };
 
     fetchCartCount();
+
+    window.addEventListener("cart-updated", fetchCartCount);
+    return () => {
+      window.removeEventListener("cart-updated", fetchCartCount);
+    };
   }, []);
 
   useEffect(() => {
@@ -114,10 +113,11 @@ export function Navbar({ variant = "default" }: NavbarProps) {
 
   return (
     <nav
-      className={`sticky top-0 z-50 w-full transition-all duration-300 ${isScrolled
-        ? "backdrop-blur-md bg-white/80 border-b border-slate-200/60 shadow-md"
-        : "bg-white border-b border-slate-200 shadow-sm"
-        }`}
+      className={`sticky top-0 z-50 w-full transition-all duration-300 ${
+        isScrolled
+          ? "backdrop-blur-md bg-white/80 border-b border-slate-200/60 shadow-md"
+          : "bg-white border-b border-slate-200 shadow-sm"
+      }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
@@ -183,18 +183,24 @@ export function Navbar({ variant = "default" }: NavbarProps) {
                         >
                           <Link
                             href="/user"
-                            className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                            className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-primary-600"
                             onClick={() => setIsUserMenuOpen(false)}
                           >
                             Akun Saya
                           </Link>
                           <Link
                             href="/user/purchase"
-                            className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                            className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-primary-600"
                             onClick={() => setIsUserMenuOpen(false)}
                           >
                             Pesanan Saya
                           </Link>
+                          <button
+                            onClick={logout}
+                            className="flex w-full items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                          >
+                            Logout
+                          </button>
                         </motion.div>
                       )}
                     </AnimatePresence>

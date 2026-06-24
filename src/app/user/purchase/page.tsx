@@ -2,7 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, Store, ChevronRight, Truck, Loader2 } from "lucide-react";
+import {
+  Search,
+  Store,
+  ChevronRight,
+  Truck,
+  Loader2,
+  Star,
+  X,
+} from "lucide-react";
 import Image from "next/image";
 import { Navbar } from "@/components/Navbar";
 import { UserSidebar } from "@/components/user/UserSidebar";
@@ -11,6 +19,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 interface OrderItem {
+  id_produk: string;
   id: string;
   name: string;
   image: string;
@@ -20,21 +29,28 @@ interface OrderItem {
 }
 
 interface Order {
+  id_pesanan: string;
+  tokoId: string;
   id: string;
   storeName: string;
+  storeId: string;
   status: string; // Internal DB status
   statusLabel: string; // UI Tab Label
   statusText: string;
   items: OrderItem[];
   totalPrice: number;
   isRated: boolean;
+  ratingDetail?: {
+    rating: number;
+    komentar: string | null;
+  } | null;
 }
 
 const tabs = [
   "Semua",
   "Belum Bayar",
   "Sedang Dikemas",
-  "Dikirim",
+  "Dikirim/Siap Diambil",
   "Selesai",
   "Dibatalkan",
 ];
@@ -47,10 +63,12 @@ const mapStatusToTab = (status: string) => {
     case "diproses":
       return "Sedang Dikemas";
     case "siap_diambil":
-      return "Dikirim";
+    case "dikirim":
+      return "Dikirim/Siap Diambil";
     case "selesai":
       return "Selesai";
     case "dibatalkan":
+    case "kadaluarsa":
       return "Dibatalkan";
     default:
       return "Semua";
@@ -66,7 +84,9 @@ const getStatusText = (status: string) => {
     case "diproses":
       return "Pesanan sedang disiapkan oleh penjual.";
     case "siap_diambil":
-      return "Pesanan siap untuk diambil atau sedang diantar.";
+      return "Pesanan siap untuk diambil.";
+    case "dikirim":
+      return "Pesanan sedang dikirim.";
     case "selesai":
       return "Pesanan telah selesai.";
     case "dibatalkan":
@@ -84,78 +104,263 @@ export default function PurchasePage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchOrders() {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) {
-          router.push("/auth/login");
-          return;
-        }
+  // Rating Modal states
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [ratingOrder, setRatingOrder] = useState<Order | null>(null);
+  const [ratingValue, setRatingValue] = useState(5);
+  const [ratingComment, setRatingComment] = useState("");
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+  const [isReadOnlyRating, setIsReadOnlyRating] = useState(false);
 
-        const { data: pesananList, error } = await supabase
-          .from("pesanan")
-          .select(
-            `
-            id_pesanan,
-            kode_unik,
-            total_harga,
-            status_pesanan,
-            sub_toko (
-              nama_proker
-            ),
-            detail_pesanan (
-              id_detail,
-              jumlah,
-              harga_satuan,
-              produk (
-                nama_produk,
-                foto,
-                kategori
-              )
-            )
-          `,
-          )
-          .eq("id_pengguna", user.id)
-          .order("tgl_pesan", { ascending: false });
-
-        if (error) throw error;
-
-        if (pesananList) {
-          const formattedOrders: Order[] = pesananList.map((p: any) => ({
-            id: p.kode_unik,
-            storeName: p.sub_toko?.nama_proker || "Toko Tidak Diketahui",
-            status: p.status_pesanan,
-            statusLabel: mapStatusToTab(p.status_pesanan),
-            statusText: getStatusText(p.status_pesanan),
-            totalPrice: p.total_harga,
-            isRated: false, // Feature not implemented in DB
-            items:
-              p.detail_pesanan?.map((dp: any) => ({
-                id: dp.id_detail,
-                name: dp.produk?.nama_produk || "Produk Dihapus",
-                image:
-                  dp.produk?.foto ||
-                  "https://placehold.co/100x100?text=No+Image",
-                variation: dp.produk?.kategori || "Umum",
-                quantity: dp.jumlah,
-                price: dp.harga_satuan,
-              })) || [],
-          }));
-
-          setOrders(formattedOrders);
-        }
-      } catch (error) {
-        console.error("Failed to fetch orders", error);
-      } finally {
-        setIsLoading(false);
+  async function fetchOrders() {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth/login");
+        return;
       }
-    }
 
+      const { data: pesananList, error } = await supabase
+        .from("pesanan")
+        .select(
+          `
+          id_pesanan,
+          id_sub_toko,
+          kode_unik,
+          total_harga,
+          status_pesanan,
+          sub_toko (
+            id_toko,
+            nama_proker
+          ),
+          ulasan (
+            id_ulasan,
+            rating,
+            komentar
+          ),
+          detail_pesanan (
+            id_detail,
+            id_produk,
+            jumlah,
+            harga_satuan,
+            produk (
+              nama_produk,
+              foto,
+              kategori
+            )
+          )
+        `,
+        )
+        .eq("id_pengguna", user.id)
+        .order("tgl_pesan", { ascending: false });
+
+      if (error) throw error;
+
+      if (pesananList) {
+        const formattedOrders: Order[] = pesananList.map((p: any) => ({
+          id_pesanan: p.id_pesanan,
+          id: p.kode_unik,
+          storeId: p.id_sub_toko,
+          tokoId: p.sub_toko?.id_toko,
+          storeName: p.sub_toko?.nama_proker || "Toko Tidak Diketahui",
+          status: p.status_pesanan,
+          statusLabel: mapStatusToTab(p.status_pesanan),
+          statusText: getStatusText(p.status_pesanan),
+          totalPrice: p.total_harga,
+          isRated: p.ulasan && p.ulasan.length > 0,
+          ratingDetail:
+            p.ulasan && p.ulasan.length > 0
+              ? {
+                  rating: p.ulasan[0].rating,
+                  komentar: p.ulasan[0].komentar,
+                }
+              : null,
+          items:
+            p.detail_pesanan?.map((dp: any) => ({
+              id: dp.id_detail,
+              id_produk: dp.id_produk,
+              name: dp.produk?.nama_produk || "Produk Dihapus",
+              image:
+                dp.produk?.foto || "https://placehold.co/100x100?text=No+Image",
+              variation: dp.produk?.kategori || "Umum",
+              quantity: dp.jumlah,
+              price: dp.harga_satuan,
+            })) || [],
+        }));
+
+        setOrders(formattedOrders);
+      }
+    } catch (error) {
+      console.error("Failed to fetch orders", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
     fetchOrders();
   }, [router, supabase]);
+
+  const handleCancelOrder = async (orderId: string) => {
+    if (!confirm("Apakah Anda yakin ingin membatalkan pesanan ini?")) return;
+    try {
+      setIsLoading(true);
+      const { error } = await supabase
+        .from("pesanan")
+        .update({ status_pesanan: "dibatalkan" })
+        .eq("id_pesanan", orderId);
+
+      if (error) throw error;
+      alert("Pesanan berhasil dibatalkan.");
+      await fetchOrders();
+    } catch (err) {
+      console.error("Error cancelling order:", err);
+      alert("Gagal membatalkan pesanan. Silakan coba lagi.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCompleteOrder = async (orderId: string) => {
+    if (
+      !confirm(
+        "Apakah Anda yakin sudah menerima pesanan ini dan ingin menyelesaikannya?",
+      )
+    )
+      return;
+    try {
+      setIsLoading(true);
+      const { error } = await supabase
+        .from("pesanan")
+        .update({ status_pesanan: "selesai" })
+        .eq("id_pesanan", orderId);
+
+      if (error) throw error;
+      alert("Pesanan berhasil diselesaikan.");
+      await fetchOrders();
+    } catch (err) {
+      console.error("Error completing order:", err);
+      alert("Gagal menyelesaikan pesanan. Silakan coba lagi.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOpenRatingModal = (order: Order, readOnly: boolean = false) => {
+    setRatingOrder(order);
+    if (readOnly && order.ratingDetail) {
+      setRatingValue(order.ratingDetail.rating);
+      setRatingComment(order.ratingDetail.komentar || "");
+      setIsReadOnlyRating(true);
+    } else {
+      setRatingValue(5);
+      setRatingComment("");
+      setIsReadOnlyRating(false);
+    }
+    setShowRatingModal(true);
+  };
+
+  const handleSubmitRating = async () => {
+    if (!ratingOrder) return;
+    try {
+      setIsSubmittingRating(true);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        alert("Sesi Anda telah habis. Silakan login kembali.");
+        return;
+      }
+
+      const { error } = await supabase.from("ulasan").insert({
+        id_pengguna: user.id,
+        id_sub_toko: ratingOrder.storeId,
+        id_pesanan: ratingOrder.id_pesanan,
+        rating: ratingValue,
+        komentar: ratingComment || null,
+      });
+
+      if (error) throw error;
+
+      alert("Terima kasih atas penilaian Anda!");
+      setShowRatingModal(false);
+      setRatingOrder(null);
+      await fetchOrders();
+    } catch (err) {
+      console.error("Error submitting review:", err);
+      alert("Gagal menyimpan ulasan. Silakan coba lagi.");
+    } finally {
+      setIsSubmittingRating(false);
+    }
+  };
+
+  const handleBuyAgain = async (
+    items: Array<{ id_produk: string; quantity: number }>,
+  ) => {
+    try {
+      setIsLoading(true);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        alert("Sesi Anda telah habis. Silakan login kembali.");
+        return;
+      }
+
+      for (const item of items) {
+        const { data: existingCartItem, error: fetchError } = await supabase
+          .from("keranjang")
+          .select("id_keranjang, jumlah")
+          .eq("id_pengguna", user.id)
+          .eq("id_produk", item.id_produk)
+          .maybeSingle();
+
+        if (fetchError) throw fetchError;
+
+        if (existingCartItem) {
+          const { error: updateError } = await supabase
+            .from("keranjang")
+            .update({ jumlah: existingCartItem.jumlah + item.quantity })
+            .eq("id_keranjang", existingCartItem.id_keranjang);
+
+          if (updateError) throw updateError;
+        } else {
+          const { error: insertError } = await supabase
+            .from("keranjang")
+            .insert({
+              id_pengguna: user.id,
+              id_produk: item.id_produk,
+              jumlah: item.quantity,
+            });
+
+          if (insertError) throw insertError;
+        }
+      }
+
+      router.push("/cart");
+    } catch (err) {
+      console.error("Error adding to cart:", err);
+      alert("Gagal menambahkan produk ke keranjang. Silakan coba lagi.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOpenChat = (storeId: string, storeName: string) => {
+    const event = new CustomEvent("openProkerChat", {
+      detail: {
+        id_sub_toko: storeId,
+        name: storeName,
+        type: "toko",
+        avatar: `https://placehold.co/100x100?text=${encodeURIComponent(storeName.charAt(0))}`,
+      },
+    });
+    window.dispatchEvent(event);
+  };
 
   const filteredOrders =
     activeTab === "Semua"
@@ -245,11 +450,19 @@ export default function PurchasePage() {
                 filteredOrders.map((order) => (
                   <div
                     key={order.id}
-                    className="bg-white md:rounded-sm shadow-sm overflow-hidden"
+                    className="bg-white md:rounded-sm shadow-sm overflow-hidden hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-center justify-between p-4 border-b border-slate-50 gap-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <div className="flex items-center gap-2 group cursor-pointer min-w-0">
+                        <div
+                          className="flex items-center gap-2 group cursor-pointer min-w-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(
+                              `/organizations/${order.tokoId}/${order.storeId}`,
+                            );
+                          }}
+                        >
                           <Store className="w-4 h-4 text-slate-700 shrink-0" />
                           <span className="font-bold text-sm group-hover:text-primary-600 truncate">
                             {order.storeName}
@@ -257,20 +470,29 @@ export default function PurchasePage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <Truck className="hidden sm:block w-4 h-4 text-emerald-500" />
-                        <span className="text-[11px] sm:text-xs md:text-sm text-emerald-600 sm:pr-4 sm:border-r border-slate-100 whitespace-nowrap uppercase">
+                        {/* <Truck className="hidden sm:block w-4 h-4 text-emerald-500" /> */}
+                        {/* <span className="text-[11px] sm:text-xs md:text-sm text-emerald-600 sm:pr-4 sm:border-r border-slate-100 whitespace-nowrap uppercase">
                           {order.statusLabel}
-                        </span>
+                        </span> */}
                         <span className="hidden sm:block text-primary-600 text-sm font-bold whitespace-nowrap uppercase">
                           {order.status.replace("_", " ")}
                         </span>
                       </div>
                     </div>
 
-                    <div className="p-4 space-y-4">
+                    <div
+                      className="p-4 space-y-4 cursor-pointer"
+                      onClick={() => router.push(`/user/purchase/${order.id}`)}
+                    >
                       {order.items.map((item) => (
                         <div key={item.id} className="flex gap-3">
-                          <div className="w-20 h-20 bg-slate-100 rounded-sm relative border border-slate-100 shrink-0">
+                          <div
+                            className="w-20 h-20 bg-slate-100 rounded-sm relative border border-slate-100 shrink-0 cursor-pointer"
+                            // onClick={(e) => {
+                            //   e.stopPropagation();
+                            //   router.push(`/explore/${item.id_produk}`);
+                            // }}
+                          >
                             <Image
                               src={item.image}
                               alt={item.name}
@@ -302,8 +524,7 @@ export default function PurchasePage() {
                     <div className="p-4 border-t border-slate-50 bg-slate-50/30">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-2 text-xs text-slate-500 min-w-0">
-                          {(order.statusLabel === "Dikirim" ||
-                            order.statusLabel === "Sedang Dikemas") && (
+                          {order.statusLabel === "Dikirim" && (
                             <Truck className="w-4 h-4 shrink-0 text-emerald-500" />
                           )}
                           <p
@@ -311,7 +532,6 @@ export default function PurchasePage() {
                           >
                             {order.statusText}
                           </p>
-                          <ChevronRight className="w-4 h-4 shrink-0" />
                         </div>
                         <div className="flex items-center justify-end gap-2 shrink-0">
                           <span className="text-xs sm:text-sm text-slate-600">
@@ -323,29 +543,95 @@ export default function PurchasePage() {
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center justify-end gap-2 mt-6">
+                      <div
+                        className="flex flex-wrap items-center justify-end gap-2 mt-6"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {order.statusLabel === "Selesai" ? (
                           <>
-                            <button className="flex-1 sm:flex-none px-4 py-2 bg-primary-600 text-white text-xs sm:text-sm font-medium rounded-sm shadow-md hover:bg-primary-700 transition-all whitespace-nowrap">
+                            <button
+                              onClick={() =>
+                                handleBuyAgain(
+                                  order.items.map((item) => ({
+                                    id_produk: item.id_produk,
+                                    quantity: item.quantity,
+                                  })),
+                                )
+                              }
+                              className="flex-1 sm:flex-none px-4 py-2 bg-primary-600 text-white text-xs sm:text-sm font-medium rounded-sm shadow-md hover:bg-primary-700 transition-all whitespace-nowrap"
+                            >
                               Beli Lagi
                             </button>
-                            <button className="flex-1 sm:flex-none px-4 py-2 border border-slate-200 text-slate-600 text-xs sm:text-sm font-medium rounded-sm hover:bg-slate-50 whitespace-nowrap">
-                              Penilaian
-                            </button>
+                            {order.isRated ? (
+                              <button
+                                onClick={() =>
+                                  handleOpenRatingModal(order, true)
+                                }
+                                className="flex-1 sm:flex-none px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs sm:text-sm font-medium rounded-sm transition-all whitespace-nowrap"
+                              >
+                                Lihat Penilaian
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleOpenRatingModal(order)}
+                                className="flex-1 sm:flex-none px-4 py-2 border border-primary-600 text-primary-600 text-xs sm:text-sm font-medium rounded-sm hover:bg-primary-50 transition-all whitespace-nowrap"
+                              >
+                                Beri Penilaian
+                              </button>
+                            )}
                           </>
                         ) : order.statusLabel === "Belum Bayar" ? (
                           <>
-                            <button className="flex-1 sm:flex-none px-4 py-2 border border-slate-200 text-slate-600 text-xs sm:text-sm font-medium rounded-sm hover:bg-slate-50 whitespace-nowrap">
+                            <button
+                              onClick={() =>
+                                handleCancelOrder(order.id_pesanan)
+                              }
+                              className="flex-1 sm:flex-none px-4 py-2 border border-slate-200 text-slate-600 text-xs sm:text-sm font-medium rounded-sm hover:bg-slate-50 whitespace-nowrap"
+                            >
                               Batalkan Pesanan
                             </button>
-                            <button className="flex-1 sm:flex-none px-4 py-2 bg-primary-600 text-white text-xs sm:text-sm font-medium rounded-sm shadow-md hover:bg-primary-700 whitespace-nowrap">
+                            <button
+                              onClick={() =>
+                                router.push(`/user/purchase/${order.id}`)
+                              }
+                              className="flex-1 sm:flex-none px-4 py-2 bg-primary-600 text-white text-xs sm:text-sm font-medium rounded-sm shadow-md hover:bg-primary-700 whitespace-nowrap"
+                            >
                               Bayar Sekarang
+                            </button>
+                          </>
+                        ) : order.statusLabel === "Dikirim/Siap Diambil" ? (
+                          <>
+                            <button
+                              onClick={() =>
+                                handleOpenChat(order.storeId, order.storeName)
+                              }
+                              className="flex-1 sm:flex-none px-4 py-2 border border-slate-200 text-slate-600 text-xs sm:text-sm font-medium rounded-sm hover:bg-slate-50 whitespace-nowrap"
+                            >
+                              Hubungi Penjual
+                            </button>
+                            <button
+                              onClick={() =>
+                                handleCompleteOrder(order.id_pesanan)
+                              }
+                              className="flex-1 sm:flex-none px-4 py-2 bg-primary-600 text-white text-xs sm:text-sm font-medium rounded-sm shadow-md hover:bg-primary-700 whitespace-nowrap"
+                            >
+                              Pesanan Diterima
                             </button>
                           </>
                         ) : (
                           <>
-                            <button className="flex-1 sm:flex-none px-4 py-2 border border-slate-200 text-slate-600 text-xs sm:text-sm font-medium rounded-sm hover:bg-slate-50 whitespace-nowrap">
-                              Hubungi Penjual
+                            <button
+                              onClick={() =>
+                                handleBuyAgain(
+                                  order.items.map((item) => ({
+                                    id_produk: item.id_produk,
+                                    quantity: item.quantity,
+                                  })),
+                                )
+                              }
+                              className="flex-1 sm:flex-none px-4 py-2 bg-primary-600 text-white text-xs sm:text-sm font-medium rounded-sm shadow-md hover:bg-primary-700 transition-all whitespace-nowrap"
+                            >
+                              Beli Lagi
                             </button>
                           </>
                         )}
@@ -358,6 +644,120 @@ export default function PurchasePage() {
           </div>
         </div>
       </main>
+
+      {/* Rating Modal */}
+      {showRatingModal && ratingOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-sm shadow-lg max-w-md w-full overflow-hidden"
+          >
+            <div className="flex items-center justify-between p-4 border-b border-slate-100">
+              <h3 className="font-bold text-slate-800">
+                {isReadOnlyRating ? "Detail Penilaian" : "Penilaian Pesanan"}
+              </h3>
+              <button
+                onClick={() => setShowRatingModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="text-center space-y-1">
+                <p className="text-xs text-slate-500 uppercase tracking-wider">
+                  {isReadOnlyRating
+                    ? "Sub-toko yang Dinilai"
+                    : "Menilai Sub-toko"}
+                </p>
+                <p className="font-bold text-slate-800 text-base">
+                  {ratingOrder.storeName}
+                </p>
+              </div>
+
+              {/* Stars */}
+              <div className="flex justify-center gap-2 py-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => !isReadOnlyRating && setRatingValue(star)}
+                    disabled={isReadOnlyRating}
+                    className={`focus:outline-none transition-transform ${
+                      isReadOnlyRating ? "cursor-default" : "active:scale-95"
+                    }`}
+                  >
+                    <Star
+                      className={`w-8 h-8 ${
+                        star <= ratingValue
+                          ? "text-amber-400 fill-amber-400"
+                          : "text-slate-300 hover:text-amber-300"
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">
+                  Ulasan / Komentar
+                </label>
+                <textarea
+                  value={ratingComment}
+                  onChange={(e) =>
+                    !isReadOnlyRating && setRatingComment(e.target.value)
+                  }
+                  disabled={isReadOnlyRating}
+                  placeholder={
+                    isReadOnlyRating
+                      ? "Tidak ada komentar."
+                      : "Bagikan pengalaman Anda berbelanja di sub-toko ini..."
+                  }
+                  className="w-full h-24 p-2 text-sm border border-slate-200 rounded-sm focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none text-slate-800 disabled:bg-slate-50"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-100 bg-slate-50">
+              {isReadOnlyRating ? (
+                <button
+                  type="button"
+                  onClick={() => setShowRatingModal(false)}
+                  className="px-6 py-2 bg-primary-600 text-white text-sm font-medium rounded-sm hover:bg-primary-700 transition-colors shadow-md"
+                >
+                  Tutup
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowRatingModal(false)}
+                    disabled={isSubmittingRating}
+                    className="px-4 py-2 border border-slate-200 text-slate-600 text-sm font-medium rounded-sm hover:bg-slate-100 transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmitRating}
+                    disabled={isSubmittingRating}
+                    className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-sm hover:bg-primary-700 transition-colors flex items-center gap-2 shadow-md"
+                  >
+                    {isSubmittingRating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Mengirim...
+                      </>
+                    ) : (
+                      "Kirim Penilaian"
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
