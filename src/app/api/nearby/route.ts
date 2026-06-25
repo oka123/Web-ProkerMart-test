@@ -98,14 +98,12 @@ export async function GET(request: NextRequest) {
       .map((shop: any) => {
         // Cari jarak dari data RPC
         const distanceInfo = nearbyData.find(
-           
           (n: any) => n.id_sub_toko === shop.id_sub_toko,
         );
         const distanceKm = distanceInfo ? distanceInfo.distance_km : 0;
 
         // Ambil kategori unik dari produk
         const categories = Array.from(
-           
           new Set(
             (shop.produk || []).map((p: any) => p.kategori).filter(Boolean),
           ),
@@ -125,7 +123,7 @@ export async function GET(request: NextRequest) {
         }
 
         const members = shop.sub_toko_member || [];
-         
+
         const panitiaList = members
           .map((m: any) => {
             const penggunaObj = Array.isArray(m.pengguna)
@@ -137,7 +135,6 @@ export async function GET(request: NextRequest) {
               lat: m.latitude,
               lng: m.longitude,
             };
-             
           })
           .filter((m: any) => m.lat && m.lng);
 
@@ -146,8 +143,7 @@ export async function GET(request: NextRequest) {
         const reviewCount = ulasanList.length;
         const rating =
           reviewCount > 0
-            ?  
-              ulasanList.reduce((sum: number, u: any) => sum + u.rating, 0) /
+            ? ulasanList.reduce((sum: number, u: any) => sum + u.rating, 0) /
               reviewCount
             : 0;
 
@@ -173,7 +169,7 @@ export async function GET(request: NextRequest) {
         };
       })
       .filter(Boolean)
-       
+
       .sort((a: any, b: any) => a.distanceKm - b.distanceKm); // Urutkan berdasarkan jarak
 
     return NextResponse.json({ shops: formattedShops });

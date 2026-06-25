@@ -78,14 +78,14 @@ export async function POST(request: Request) {
     }
 
     // ─── 3. Update status_pesanan di Supabase ────────────────────────────────
-    //        Cari pesanan berdasarkan kode_unik = order_id dari Midtrans
+    //        Cari pesanan berdasarkan kode_unik = order_id atau prefix order_id-
     const { error: dbError } = await supabase
       .from("pesanan")
       .update({
         status_pesanan: status_pesanan,
         metode_pembayaran: payment_type,
       })
-      .eq("kode_unik", order_id);
+      .or(`kode_unik.eq.${order_id},kode_unik.like.${order_id}-%`);
 
     if (dbError) {
       console.error("Gagal update status pesanan:", dbError.message);

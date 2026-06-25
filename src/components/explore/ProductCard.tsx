@@ -11,7 +11,8 @@ import {
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { addToCart } from "@/lib/supabase/queries/cart";
 import type { Product } from "@/lib/types/product";
 
@@ -36,11 +37,19 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, index }: ProductCardProps) {
+  const router = useRouter();
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
-  const [notificationError, setNotificationError] = useState<string | null>(
-    null,
-  );
+  const [notificationError, setNotificationError] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
+
+  useEffect(() => {
+    import("@/lib/supabase/client").then(({ createClient }) => {
+      createClient()
+        .auth.getUser()
+        .then(({ data: { user } }) => setIsLoggedIn(!!user));
+    });
+  }, []);
 
   const tag = getProductTag(product.metode_jualan);
   const orgName = product.sub_toko?.toko?.organisasi?.nama_organisasi ?? "-";
@@ -48,6 +57,11 @@ export function ProductCard({ product, index }: ProductCardProps) {
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
+    if (!isLoggedIn) {
+      const currentPath = window.location.pathname + window.location.search;
+      router.push(`/auth/login?redirect=${encodeURIComponent(currentPath)}`);
+      return;
+    }
     if (product.stok <= 0) return;
 
     setIsAddingToCart(true);

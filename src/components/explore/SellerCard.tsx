@@ -63,7 +63,7 @@ export function SellerCard({ sellerInfo }: SellerCardProps) {
                   />
                 </div>
               ) : (
-                <div className="w-12 h-12 rounded-full bg-linear-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-md border border-slate-200 shadow-xs">
+                <div className="w-12 h-12 rounded-full bg-linear-to-tr from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold text-md border border-slate-200 shadow-xs">
                   {storeInitials}
                 </div>
               )}

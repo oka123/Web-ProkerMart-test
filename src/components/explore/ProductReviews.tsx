@@ -161,7 +161,7 @@ export function ProductReviews({
                 className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs hover:shadow-md transition duration-200 flex gap-4"
               >
                 {/* Initials Avatar */}
-                <div className="w-10 h-10 rounded-full bg-linear-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                <div className="w-10 h-10 rounded-full bg-linear-to-tr from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
                   {initials}
                 </div>
 
