@@ -56,17 +56,7 @@ export async function GET(request: NextRequest) {
         longitude,
         toko (
           id_toko,
-          nama_toko,
-          latitude,
-          longitude
-        ),
-        sub_toko_member (
-          id_pengguna,
-          latitude,
-          longitude,
-          pengguna (
-            nama
-          )
+          nama_toko
         ),
         produk (
           kategori
@@ -122,21 +112,6 @@ export async function GET(request: NextRequest) {
           return null; // Akan dibuang di tahap filter
         }
 
-        const members = shop.sub_toko_member || [];
-
-        const panitiaList = members
-          .map((m: any) => {
-            const penggunaObj = Array.isArray(m.pengguna)
-              ? m.pengguna[0]
-              : m.pengguna;
-            return {
-              id: m.id_pengguna,
-              name: penggunaObj?.nama || "Panitia",
-              lat: m.latitude,
-              lng: m.longitude,
-            };
-          })
-          .filter((m: any) => m.lat && m.lng);
 
         // Hitung rating berdasarkan data ulasan
         const ulasanList = shop.ulasan || [];
@@ -160,12 +135,7 @@ export async function GET(request: NextRequest) {
           imageUrl: shop.foto_sampul || "/placeholder.jpg",
           lat: shop.latitude,
           lng: shop.longitude,
-          tokoCoords:
-            tokoData?.latitude && tokoData?.longitude
-              ? { lat: tokoData.latitude, lng: tokoData.longitude }
-              : null,
-          panitiaList: panitiaList,
-          promoTag: undefined, // Dihapus karena menggunakan dummy
+
         };
       })
       .filter(Boolean)

@@ -130,7 +130,7 @@ export function PwaInstallPrompt() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 50, scale: 0.95 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="fixed bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-96 z-50 bg-white rounded-2xl shadow-2xl border border-slate-150 p-5 overflow-hidden"
+          className="fixed bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-96 z-110 bg-white rounded-2xl shadow-2xl border border-slate-150 p-5 overflow-hidden"
         >
           {/* Top colored accent bar */}
           <div className="absolute top-0 left-0 right-0 h-1.5 bg-linear-to-r from-blue-500 to-blue-600" />

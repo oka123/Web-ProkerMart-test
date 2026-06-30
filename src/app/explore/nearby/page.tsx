@@ -68,43 +68,14 @@ export default function NearbyShopsPage() {
   const selectedDetails = React.useMemo(() => {
     if (!activeMarkerId) return null;
 
-    if (activeMarkerId.startsWith("toko-")) {
-      const shopId = activeMarkerId.substring(5);
-      const shop = shops.find((s) => s.id === shopId);
-      if (shop) {
-        return {
-          shop,
-          type: "toko",
-          buttonText: "Lihat Organisasi",
-          linkUrl: `/organizations/${shop.tokoId}`,
-          displayName: shop.tokoName,
-        };
-      }
-    } else if (activeMarkerId.startsWith("panitia-")) {
-      const panitiaId = activeMarkerId.substring(8);
-      const shop = shops.find((s) =>
-        s.panitiaList?.some((p) => p.id === panitiaId),
-      );
-      const panitia = shop?.panitiaList?.find((p) => p.id === panitiaId);
-      if (shop) {
-        return {
-          shop,
-          type: "panitia",
-          buttonText: "Lihat Proker",
-          linkUrl: `/organizations/${shop.tokoId}/${shop.id}`,
-          panitiaName: panitia?.name,
-        };
-      }
-    } else {
-      const shop = shops.find((s) => s.id === activeMarkerId);
-      if (shop) {
-        return {
-          shop,
-          type: "subtoko",
-          buttonText: "Lihat Proker",
-          linkUrl: `/organizations/${shop.tokoId}/${shop.id}`,
-        };
-      }
+    const shop = shops.find((s) => s.id === activeMarkerId);
+    if (shop) {
+      return {
+        shop,
+        type: "subtoko",
+        buttonText: "Lihat Proker",
+        linkUrl: `/organizations/${shop.tokoId}/${shop.id}`,
+      };
     }
     return null;
   }, [activeMarkerId, shops]);
@@ -128,32 +99,6 @@ export default function NearbyShopsPage() {
         type: "subtoko",
         linkUrl: `/organizations/${shop.tokoId}/${shop.id}`,
       });
-
-      if (shop.tokoCoords) {
-        arr.push({
-          id: `toko-${shop.id}`,
-          title: `Organisasi: ${shop.tokoName || "Toko Utama"}`,
-          lat: shop.tokoCoords.lat,
-          lng: shop.tokoCoords.lng,
-          type: "toko",
-          linkUrl: `/organizations/${shop.tokoId}`,
-        });
-      }
-
-      if (shop.panitiaList) {
-        shop.panitiaList.forEach((p) => {
-          arr.push({
-            id: `panitia-${p.id}`,
-            title: `Panitia: ${p.name}`,
-            lat: p.lat,
-            lng: p.lng,
-            type: "panitia",
-            organizationName: shop.tokoName || "Toko Utama",
-            prokerName: shop.name,
-            linkUrl: `/organizations/${shop.tokoId}/${shop.id}`,
-          });
-        });
-      }
     });
 
     return arr;
@@ -313,7 +258,7 @@ export default function NearbyShopsPage() {
           />
 
           {/* Location Indicator Over Map */}
-          <div className="absolute flex flex-col items-end gap-2 bottom-4 right-4 z-400">
+          <div className="absolute flex flex-col items-end gap-2 bottom-4 lg:bottom-8 right-4 lg:right-8 z-400">
             <button
               onClick={handleGetLocation}
               disabled={isGettingLocation}
@@ -375,19 +320,7 @@ export default function NearbyShopsPage() {
               </div>
             ) : selectedDetails ? (
               <div className="flex flex-col gap-4 pt-2">
-                {selectedDetails.type === "panitia" && (
-                  <div className="bg-violet-50 border border-violet-100 text-violet-800 px-4 py-2.5 rounded-xl text-xs font-semibold">
-                    Anggota Panitia:{" "}
-                    <span className="underline">
-                      {selectedDetails.panitiaName}
-                    </span>
-                  </div>
-                )}
-
-                <NearbyShopCard
-                  {...selectedDetails.shop}
-                  displayName={selectedDetails.displayName}
-                />
+                <NearbyShopCard {...selectedDetails.shop} />
 
                 <div className="flex flex-col gap-2 mt-2">
                   <Link href={selectedDetails.linkUrl} className="w-full">

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 interface Message {
@@ -38,7 +39,7 @@ interface Contact {
   isPanitiaView?: boolean;
 }
 
-export function Chat() {
+function ChatInner() {
   const [isOpen, setIsOpen] = useState(false);
   const [view, setView] = useState<"list" | "chat">("list");
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -339,7 +340,9 @@ export function Chat() {
     }
   };
 
-  if (loading || !user) return null;
+  const pathname = usePathname();
+
+  if (loading || !user || pathname === "/explore/nearby") return null;
 
   return (
     <>
@@ -606,5 +609,13 @@ export function Chat() {
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+export function Chat() {
+  return (
+    <React.Suspense fallback={null}>
+      <ChatInner />
+    </React.Suspense>
   );
 }
