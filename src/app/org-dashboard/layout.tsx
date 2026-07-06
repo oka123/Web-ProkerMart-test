@@ -22,8 +22,7 @@ export default function OrgDashboardLayout({
 
   const navigation = [
     { name: 'Ringkasan Organisasi', href: '/org-dashboard', icon: PieChart },
-    { name: 'Manajemen Sub-Toko', href: '/org-dashboard/stores', icon: Store },
-    { name: 'Daftarkan Proker Baru', href: '/org-dashboard/new-proker', icon: PlusCircle },
+    { name: 'Manajemen Toko', href: '/org-dashboard/stores', icon: Store },
     { name: 'Laporan Agregat', href: '/org-dashboard/agregat', icon: FileText },
     {name: 'Manajemen Anggota', href: '/org-dashboard/members', icon: Users },
     { name: 'Profil Organisasi', href: '/org-dashboard/settings', icon: Building2 },
