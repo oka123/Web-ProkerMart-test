@@ -20,22 +20,29 @@ export async function fetchUserAccess(
 
   if (!pengguna) return null;
 
-  const [orgResult, prokerResult] = await Promise.all([
+  const [orgResult, orgMemberResult, prokerResult] = await Promise.all([
     supabase
       .from("organisasi")
       .select("id_pengguna")
       .eq("id_pengguna", pengguna.id_pengguna)
       .maybeSingle(),
     supabase
+      .from("organisasi_member")
+      .select("id_member")
+      .eq("id_pengguna", pengguna.id_pengguna)
+      .limit(1)
+      .maybeSingle(),
+    supabase
       .from("sub_toko_member")
       .select("id_member")
       .eq("id_pengguna", pengguna.id_pengguna)
       .eq("status", "active")
+      .limit(1)
       .maybeSingle(),
   ]);
 
   // Fallback to role field if no member records exist yet
-  const hasOrganisasi = !!orgResult.data || pengguna.role === "organisasi";
+  const hasOrganisasi = !!orgResult.data || !!orgMemberResult?.data || pengguna.role === "organisasi";
   const hasProker = !!prokerResult.data || pengguna.role === "proker";
 
   return {
