@@ -130,7 +130,7 @@ export default function StoreManagementPage() {
       await fetchSubTokos();
     } catch (err) {
       console.error("[OrgDashboard - Stores] Delete error:", err);
-      alert("Gagal menghapus proker. Mungkin masih ada data pesanan terkait.");
+      alert(`Gagal menghapus proker. Error: ${err.message || err.details || JSON.stringify(err)}`);
     }
   };
 
