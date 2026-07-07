@@ -22,11 +22,35 @@ export function LoginForm() {
     const supabase = createClient();
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       if (error) throw error;
+
+      if (data?.user) {
+        // Cek role dari database pengguna
+        const { data: userData } = await supabase
+          .from("pengguna")
+          .select("role")
+          .eq("id_pengguna", data.user.id)
+          .single();
+
+        if (userData) {
+          if (userData.role === "organisasi") {
+            router.push("/org-dashboard");
+            return;
+          } else if (userData.role === "admin") {
+            router.push("/admin-dashboard");
+            return;
+          } else if (userData.role === "proker") {
+            router.push("/dashboard");
+            return;
+          }
+        }
+      }
+
+      // Default fallback ke halaman utama
       router.push("/");
     } catch (err: unknown) {
       setError(

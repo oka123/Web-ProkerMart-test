@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 const CATEGORIES = [
   "Seminar & Talkshow",
@@ -35,20 +36,60 @@ export default function NewProkerPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setErrorMsg(null);
 
-    // Simulasi request ke backend selama 1.5 detik
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const supabase = createClient();
+      
+      // Ambil user yang login
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Tidak ada user login");
+
+      // Cari toko milik organisasi ini
+      const { data: orgData, error: orgError } = await supabase
+        .from("organisasi")
+        .select("id_organisasi")
+        .eq("id_pengguna", user.id)
+        .single();
+      
+      if (orgError || !orgData) throw new Error("Data organisasi tidak ditemukan");
+
+      const { data: tokoData, error: tokoError } = await supabase
+        .from("toko")
+        .select("id_toko")
+        .eq("id_organisasi", orgData.id_organisasi)
+        .single();
+
+      if (tokoError || !tokoData) throw new Error("Data toko induk tidak ditemukan");
+
+      // Insert sub_toko
+      const { error: insertError } = await supabase
+        .from("sub_toko")
+        .insert({
+          id_toko: tokoData.id_toko,
+          id_pengguna: user.id, // Pembuat otomatis jadi pengelola sementara
+          nama_proker: formData.name,
+          deskripsi: formData.description,
+          kategori: formData.category,
+          tanggal_mulai: formData.startDate || null,
+          tanggal_selesai: formData.endDate || null,
+          target_omzet: formData.targetRevenue ? parseFloat(formData.targetRevenue) : null,
+          status: "active"
+        });
+
+      if (insertError) throw insertError;
+
       setIsSuccess(true);
       
       // Menghilangkan pesan sukses setelah 3 detik
       setTimeout(() => setIsSuccess(false), 3000);
       
-      // Reset form (opsional, tergantung alur bisnis Anda)
+      // Reset form
       setFormData({
         name: "",
         category: "Seminar & Talkshow",
@@ -57,7 +98,12 @@ export default function NewProkerPage() {
         targetRevenue: "",
         description: ""
       });
-    }, 1500);
+    } catch (err: unknown) {
+      console.error("[Proker] Error:", err);
+      setErrorMsg(err instanceof Error ? err.message : "Terjadi kesalahan saat menyimpan data.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -74,6 +120,17 @@ export default function NewProkerPage() {
           >
             <CheckCircle2 className="w-5 h-5" />
             <span className="text-sm font-semibold">Proker baru berhasil didaftarkan!</span>
+          </motion.div>
+        )}
+        {errorMsg && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-4 right-4 z-50 flex items-center gap-2 bg-red-50 text-red-700 px-4 py-3 rounded-xl shadow-lg border border-red-200"
+          >
+            <AlertCircle className="w-5 h-5" />
+            <span className="text-sm font-semibold">{errorMsg}</span>
           </motion.div>
         )}
       </AnimatePresence>
