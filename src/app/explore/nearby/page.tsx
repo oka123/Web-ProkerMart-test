@@ -1,17 +1,26 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { motion, PanInfo } from "framer-motion";
-import { Search, ArrowLeft, Navigation, ShoppingCart, Loader2 } from "lucide-react";
+import {
+  Search,
+  ArrowLeft,
+  Navigation,
+  ShoppingCart,
+  Loader2,
+} from "lucide-react";
 import Link from "next/link";
 import { NearbyShopCard } from "@/components/NearbyShopCard";
+import type { MarkerData } from "@/components/MapArea";
+import React from "react";
 
 // Dynamic import for MapArea to prevent SSR issues with Leaflet
 const MapArea = dynamic(() => import("@/components/MapArea"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full bg-slate-100 animate-pulse flex items-center justify-center text-slate-500">
+    <div className="flex items-center justify-center w-full h-full bg-slate-100 animate-pulse text-slate-500">
       Memuat Peta...
     </div>
   ),
@@ -35,21 +44,65 @@ interface Shop {
   promoTag?: string;
   lat: number;
   lng: number;
+  tokoId?: string;
+  tokoName?: string;
+  tokoCoords?: { lat: number; lng: number } | null;
+  panitiaList?: Array<{ id: string; name: string; lat: number; lng: number }>;
 }
-
 export default function NearbyShopsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [activeShopId, setActiveShopId] = useState<string | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
-  
+  const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
+  const [sheetState, setSheetState] = useState<
+    "collapsed" | "half" | "expanded"
+  >("half");
+
   const [userLocation, setUserLocation] = useState(FALLBACK_USER_LOCATION);
   const [shops, setShops] = useState<Shop[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+
+  const selectedDetails = React.useMemo(() => {
+    if (!activeMarkerId) return null;
+
+    const shop = shops.find((s) => s.id === activeMarkerId);
+    if (shop) {
+      return {
+        shop,
+        type: "subtoko",
+        buttonText: "Lihat Proker",
+        linkUrl: `/organizations/${shop.tokoId}/${shop.id}`,
+      };
+    }
+    return null;
+  }, [activeMarkerId, shops]);
+
+  const mapMarkers = React.useMemo(() => {
+    const arr: MarkerData[] = [];
+    arr.push({
+      id: "user-loc",
+      title: "Lokasi Anda",
+      lat: userLocation.lat,
+      lng: userLocation.lng,
+      type: "pembeli",
+    });
+
+    shops.forEach((shop) => {
+      arr.push({
+        id: shop.id,
+        title: `Proker: ${shop.name}`,
+        lat: shop.lat,
+        lng: shop.lng,
+        type: "subtoko",
+        linkUrl: `/organizations/${shop.tokoId}/${shop.id}`,
+      });
+    });
+
+    return arr;
+  }, [shops, userLocation]);
 
   // Debounce search input
   const handleSearchChange = (value: string) => {
@@ -59,29 +112,32 @@ export default function NearbyShopsPage() {
   };
 
   // Fetch nearby shops from API
-  const fetchNearbyShops = useCallback(async (lat: number, lng: number, search: string) => {
-    setIsLoading(true);
-    setErrorMsg("");
-    try {
-      const params = new URLSearchParams({
-        lat: String(lat),
-        lng: String(lng),
-        radius: "10", // 10km radius
-      });
-      if (search) params.set("search", search);
+  const fetchNearbyShops = useCallback(
+    async (lat: number, lng: number, search: string) => {
+      setIsLoading(true);
+      setErrorMsg("");
+      try {
+        const params = new URLSearchParams({
+          lat: String(lat),
+          lng: String(lng),
+          radius: "10", // 10km radius
+        });
+        if (search) params.set("search", search);
 
-      const res = await fetch(`/api/nearby?${params.toString()}`);
-      if (!res.ok) throw new Error("Gagal mengambil data toko");
-      
-      const data = await res.json();
-      setShops(data.shops || []);
-    } catch (err: any) {
-      console.error(err);
-      setErrorMsg(err.message || "Terjadi kesalahan.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+        const res = await fetch(`/api/nearby?${params.toString()}`);
+        if (!res.ok) throw new Error("Gagal mengambil data toko");
+
+        const data = await res.json();
+        setShops(data.shops || []);
+      } catch (err: any) {
+        console.error(err);
+        setErrorMsg(err.message || "Terjadi kesalahan.");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [],
+  );
 
   // Request user location
   const handleGetLocation = useCallback(() => {
@@ -106,13 +162,15 @@ export default function NearbyShopsPage() {
         alert("Gagal mendapatkan lokasi. Pastikan izin lokasi diberikan.");
         setIsGettingLocation(false);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
   }, []);
 
   // Re-fetch when location or search changes
   useEffect(() => {
-    fetchNearbyShops(userLocation.lat, userLocation.lng, debouncedSearch);
+    queueMicrotask(() => {
+      fetchNearbyShops(userLocation.lat, userLocation.lng, debouncedSearch);
+    });
   }, [userLocation, debouncedSearch, fetchNearbyShops]);
 
   // Initial location request (optional, can just use fallback initially)
@@ -122,41 +180,51 @@ export default function NearbyShopsPage() {
 
   const handleDragEnd = (
     event: MouseEvent | TouchEvent | PointerEvent,
-    info: PanInfo
+    info: PanInfo,
   ) => {
     if (info.offset.y < -30) {
-      setIsExpanded(true);
+      // Dragged UP
+      if (sheetState === "collapsed") {
+        setSheetState("half");
+      } else if (sheetState === "half") {
+        setSheetState("expanded");
+      }
     } else if (info.offset.y > 30) {
-      setIsExpanded(false);
+      // Dragged DOWN
+      if (sheetState === "expanded") {
+        setSheetState("half");
+      } else if (sheetState === "half") {
+        setSheetState("collapsed");
+      }
     }
   };
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50 overflow-hidden">
+    <div className="flex flex-col h-screen overflow-hidden bg-slate-50">
       {/* Header */}
-      <div className="bg-primary-600 text-white pt-4 px-4 relative">
+      <div className="relative px-4 pt-4 text-white bg-primary-600">
         <div className="flex items-center gap-3 mb-4">
           <Link
             href="/explore"
-            className="p-2 hover:bg-white/10 rounded-full transition-colors"
+            className="p-2 transition-colors rounded-full hover:bg-white/10"
           >
             <ArrowLeft className="w-6 h-6" />
           </Link>
-          <div className="flex-1 relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-slate-400" />
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <Search className="w-5 h-5 text-slate-400" />
             </div>
             <input
               type="text"
               placeholder="Cari penjual, toko atau proker di sekitarmu"
-              className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/70 focus:outline-none focus:bg-white focus:text-slate-900 focus:placeholder:text-slate-400 transition-all"
+              className="w-full py-2 pl-10 pr-4 text-white transition-all border rounded-lg bg-white/10 border-white/20 placeholder:text-white/70 focus:outline-none focus:bg-white focus:text-slate-900 focus:placeholder:text-slate-400"
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
             />
           </div>
           <Link
             href="/cart"
-            className="p-2 relative hover:bg-white/10 rounded-full transition-colors"
+            className="relative p-2 transition-colors rounded-full hover:bg-white/10"
           >
             <ShoppingCart className="w-6 h-6" />
             <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border-2 border-primary-600 rounded-full"></span>
@@ -165,28 +233,37 @@ export default function NearbyShopsPage() {
       </div>
 
       {/* Main Content Area (Map + List) */}
-      <div className="flex-1 relative flex flex-col lg:flex-row-reverse z-10 bg-white rounded-t-3xl overflow-hidden shadow-xl lg:shadow-none lg:mt-0 lg:rounded-none lg:bg-transparent">
+      <div className="relative z-10 flex flex-col flex-1 overflow-hidden bg-white shadow-xl lg:flex-row-reverse rounded-t-3xl lg:shadow-none lg:mt-0 lg:rounded-none lg:bg-transparent">
         {/* Map Container */}
         <motion.div
           initial={false}
-          animate={{ height: isExpanded ? "0vh" : "40vh" }}
+          animate={{
+            height:
+              sheetState === "expanded"
+                ? "0vh"
+                : sheetState === "half"
+                  ? "45vh"
+                  : "80vh",
+          }}
           transition={{ type: "spring", bounce: 0.1, duration: 0.5 }}
           className="lg:h-full! lg:w-1/2 relative bg-slate-200 overflow-hidden"
         >
           <MapArea
             userLocation={userLocation}
-            shops={shops}
-            onMarkerClick={(id) => setActiveShopId(id)}
-            activeShopId={activeShopId}
+            markers={mapMarkers}
+            onMarkerClick={(id) => {
+              setActiveMarkerId(id);
+            }}
+            activeMarkerId={activeMarkerId}
           />
 
           {/* Location Indicator Over Map */}
-          <div className="absolute bottom-4 right-4 z-400 flex flex-col gap-2 items-end">
-            <button 
+          <div className="absolute flex flex-col items-end gap-2 bottom-4 lg:bottom-8 right-4 lg:right-8 z-400">
+            <button
               onClick={handleGetLocation}
               disabled={isGettingLocation}
               title="Dapatkan lokasi saat ini"
-              className="w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center text-primary-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
+              className="flex items-center justify-center w-12 h-12 transition-all bg-white rounded-full shadow-lg text-primary-600 hover:bg-slate-50 disabled:opacity-50"
             >
               {isGettingLocation ? (
                 <Loader2 className="w-6 h-6 animate-spin" />
@@ -198,47 +275,65 @@ export default function NearbyShopsPage() {
         </motion.div>
 
         {/* Bottom Sheet / Sidebar List */}
-        <div className="flex-1 flex flex-col bg-white overflow-hidden lg:w-1/2 lg:rounded-tr-3xl relative z-20">
+        <div className="relative z-20 flex flex-col flex-1 overflow-hidden bg-white lg:w-1/2 lg:rounded-tr-3xl">
           {/* Drag Handle for Mobile */}
           <motion.div
             drag="y"
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={0.2}
             onDragEnd={handleDragEnd}
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full flex justify-center pt-4 pb-3 lg:hidden cursor-grab active:cursor-grabbing touch-none"
+            onClick={() => {
+              if (sheetState === "collapsed") {
+                setSheetState("half");
+              } else if (sheetState === "half") {
+                setSheetState("expanded");
+              } else {
+                setSheetState("collapsed");
+              }
+            }}
+            className="flex justify-center w-full pt-4 pb-3 lg:hidden cursor-grab active:cursor-grabbing touch-none"
           >
             <div className="w-12 h-1.5 bg-slate-300 rounded-full"></div>
           </motion.div>
 
           {/* List Content */}
-          <div className="flex-1 overflow-y-auto px-4 pb-4">
+          <div className="flex-1 px-4 py-2 overflow-y-auto overscroll-none">
             {isLoading && shops.length === 0 ? (
-              <div className="flex justify-center items-center h-32">
+              <div className="flex items-center justify-center h-32">
                 <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
               </div>
             ) : errorMsg ? (
-              <div className="text-center py-10 text-red-500">
+              <div className="py-10 text-center text-red-500">
                 <p>{errorMsg}</p>
-                <button onClick={() => fetchNearbyShops(userLocation.lat, userLocation.lng, debouncedSearch)} className="mt-2 text-primary-600 font-medium">Coba Lagi</button>
+                <button
+                  onClick={() =>
+                    fetchNearbyShops(
+                      userLocation.lat,
+                      userLocation.lng,
+                      debouncedSearch,
+                    )
+                  }
+                  className="mt-2 font-medium text-primary-600"
+                >
+                  Coba Lagi
+                </button>
               </div>
-            ) : activeShopId && shops.find((s) => s.id === activeShopId) ? (
+            ) : selectedDetails ? (
               <div className="flex flex-col gap-4 pt-2">
-                <NearbyShopCard
-                  {...shops.find((s) => s.id === activeShopId)!}
-                />
+                <NearbyShopCard {...selectedDetails.shop} />
 
                 <div className="flex flex-col gap-2 mt-2">
-                  <Link href={`/explore/${activeShopId}`} className="w-full">
-                    <button className="w-full bg-primary-600 text-white font-medium py-3 px-4 rounded-xl shadow-sm flex justify-center items-center hover:bg-primary-700 transition-colors gap-2">
-                      Lihat Penjual <ArrowLeft className="w-4 h-4 rotate-180" />
+                  <Link href={selectedDetails.linkUrl} className="w-full">
+                    <button className="flex items-center justify-center w-full gap-2 px-4 py-3 font-medium text-white transition-colors shadow-sm bg-primary-600 rounded-xl hover:bg-primary-700">
+                      {selectedDetails.buttonText}{" "}
+                      <ArrowLeft className="w-4 h-4 rotate-180" />
                     </button>
                   </Link>
                   <button
-                    onClick={() => setActiveShopId(null)}
-                    className="w-full bg-slate-100 text-slate-700 font-medium py-3 px-4 rounded-xl flex justify-center items-center hover:bg-slate-200 transition-colors"
+                    onClick={() => setActiveMarkerId(null)}
+                    className="flex items-center justify-center w-full px-4 py-3 font-medium transition-colors bg-slate-200 text-slate-700 rounded-xl hover:bg-slate-300"
                   >
-                    Kembali ke daftar penjual
+                    Kembali
                   </button>
                 </div>
               </div>
@@ -248,17 +343,19 @@ export default function NearbyShopsPage() {
                   <div
                     key={shop.id}
                     className="cursor-pointer"
-                    onClick={() => setActiveShopId(shop.id)}
+                    onClick={() => setActiveMarkerId(shop.id)}
                   >
                     <NearbyShopCard {...shop} />
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 text-slate-500">
-                <Search className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <div className="py-12 text-center text-slate-500">
+                <Search className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                 <p>Tidak ada penjual di sekitarmu.</p>
-                <p className="text-sm mt-1">Coba geser peta atau ubah kata kunci pencarian.</p>
+                <p className="mt-1 text-sm">
+                  Coba geser peta atau ubah kata kunci pencarian.
+                </p>
               </div>
             )}
           </div>

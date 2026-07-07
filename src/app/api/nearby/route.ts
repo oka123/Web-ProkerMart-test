@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
   if (!latParam || !lngParam) {
     return NextResponse.json(
       { error: "Latitude dan longitude diperlukan" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
   const userLng = parseFloat(lngParam);
 
   try {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     // 1. Dapatkan daftar id_sub_toko dan jaraknya menggunakan RPC
     const { data: nearbyData, error: rpcError } = await supabase.rpc(
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
         user_lat: userLat,
         user_lon: userLng,
         max_distance_km: radius,
-      }
+      },
     );
 
     if (rpcError) {
@@ -46,19 +47,25 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from("sub_toko")
-      .select(`
+      .select(
+        `
         id_sub_toko,
         nama_proker,
         foto_sampul,
         latitude,
         longitude,
         toko (
+          id_toko,
           nama_toko
         ),
         produk (
           kategori
+        ),
+        ulasan (
+          rating
         )
-      `)
+      `,
+      )
       .in("id_sub_toko", ids);
 
     // Filter pencarian
@@ -77,20 +84,24 @@ export async function GET(request: NextRequest) {
 
     // 3. Gabungkan data jarak dengan data toko dan format sesuai UI
     const formattedShops = (shopsData || [])
+
       .map((shop: any) => {
         // Cari jarak dari data RPC
         const distanceInfo = nearbyData.find(
-          (n: any) => n.id_sub_toko === shop.id_sub_toko
+          (n: any) => n.id_sub_toko === shop.id_sub_toko,
         );
         const distanceKm = distanceInfo ? distanceInfo.distance_km : 0;
 
         // Ambil kategori unik dari produk
         const categories = Array.from(
-          new Set((shop.produk || []).map((p: any) => p.kategori).filter(Boolean))
+          new Set(
+            (shop.produk || []).map((p: any) => p.kategori).filter(Boolean),
+          ),
         ).join(", ");
 
         // Gabungkan nama toko dan proker
-        const namaToko = shop.toko?.nama_toko || "Toko";
+        const tokoData = Array.isArray(shop.toko) ? shop.toko[0] : shop.toko;
+        const namaToko = tokoData?.nama_toko || "Toko";
         const fullName = `${namaToko} - ${shop.nama_proker}`;
 
         // Jika pencarian text dipakai, bisa di-filter lagi di JS agar lebih akurat mencari nama_toko juga
@@ -101,21 +112,34 @@ export async function GET(request: NextRequest) {
           return null; // Akan dibuang di tahap filter
         }
 
+
+        // Hitung rating berdasarkan data ulasan
+        const ulasanList = shop.ulasan || [];
+        const reviewCount = ulasanList.length;
+        const rating =
+          reviewCount > 0
+            ? ulasanList.reduce((sum: number, u: any) => sum + u.rating, 0) /
+              reviewCount
+            : 0;
+
         return {
           id: shop.id_sub_toko,
           name: fullName,
+          tokoName: namaToko,
+          tokoId: tokoData?.id_toko,
           categories: categories || "Lainnya",
-          rating: 4.5 + Math.random() * 0.5, // Dummy rating untuk sementara karena belum ada tabel review
-          reviewCount: Math.floor(Math.random() * 200) + 10,
+          rating: Number(rating.toFixed(1)),
+          reviewCount: reviewCount,
           distanceKm: parseFloat(distanceKm.toFixed(1)),
           travelTimeMin: Math.round(distanceKm * 15) || 5, // Estimasi 15 menit per km
           imageUrl: shop.foto_sampul || "/placeholder.jpg",
           lat: shop.latitude,
           lng: shop.longitude,
-          promoTag: Math.random() > 0.7 ? "Terlaris" : undefined, // Dummy promo
+
         };
       })
       .filter(Boolean)
+
       .sort((a: any, b: any) => a.distanceKm - b.distanceKm); // Urutkan berdasarkan jarak
 
     return NextResponse.json({ shops: formattedShops });
@@ -123,7 +147,7 @@ export async function GET(request: NextRequest) {
     console.error("[API - Nearby] Unexpected error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

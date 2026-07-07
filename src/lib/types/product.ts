@@ -3,11 +3,14 @@
 export interface SubTokoInfo {
   id_sub_toko: string;
   nama_proker: string;
-  metode_jualan: string | null;
+  deskripsi: string | null;
+  foto_sampul: string | null;
   jadwal_operasional: string | null;
   toko: {
     id_toko: string;
     nama_toko: string;
+    deskripsi: string | null;
+    logo: string | null;
     organisasi: {
       id_organisasi: string;
       nama_organisasi: string;
@@ -25,6 +28,13 @@ export interface Product {
   kategori: string | null;
   status_aktif: boolean;
   tgl_dibuat: string;
+  metode_jualan: string | null;
+  preorder: boolean;
+  periode_open_start: string | null;
+  periode_open_end: string | null;
+  estimasi_siap: string | null;
+  min_order: number;
+  dp_persen: number;
   sub_toko: SubTokoInfo;
 }
 

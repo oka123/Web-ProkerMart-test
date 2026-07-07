@@ -1,158 +1,180 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { useState, useEffect } from "react";
+import { ShoppingBag, Loader2 } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 import { Navbar } from "@/components/Navbar";
 import { UserSidebar } from "@/components/user/UserSidebar";
 import { MobileHeader } from "@/components/MobileHeader";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
-const notifications = [
-  {
-    id: 1,
-    title: "Pesanan Tiba di Tujuan",
-    description: "Nilai pesanan dan dapatkan hingga 25 koin.",
-    date: "21-04-2026 18:13",
-    image: "https://placehold.co/100x100?text=Order1",
-    isRead: false,
-    type: "order",
-  },
-  {
-    id: 2,
-    title: "Pesanan sedang diantar",
-    description:
-      "Siap-siap untuk terima pesananmu. Bayar tunai ke kurir sebelum membuka pesanan.",
-    date: "21-04-2026 08:03",
-    image: "https://placehold.co/100x100?text=Order2",
-    isRead: true,
-    type: "order",
-  },
-  {
-    id: 3,
-    title: "Update Pengiriman Pesanan",
-    description:
-      "Estimasi tiba pesanan 2604173R0S1V07 telah diperbarui dari 23-04-2026 menjadi 22-04-2026.",
-    date: "21-04-2026 02:29",
-    image: "https://placehold.co/100x100?text=Order3",
-    isRead: true,
-    type: "order",
-  },
-];
+interface Notification {
+  id_notifikasi: string;
+  judul: string;
+  konten: string;
+  tgl_kirim: string;
+  status_dibaca: boolean;
+}
 
 export default function OrderNotificationsPage() {
+  const router = useRouter();
+  const supabase = createClient();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchNotifs() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth/login");
+        return;
+      }
+
+      const { data } = await supabase
+        .from("notifikasi")
+        .select("*")
+        .eq("id_pengguna", user.id)
+        .order("tgl_kirim", { ascending: false });
+
+      if (data) {
+        // Filter pesanan
+
+        const orderNotifs = data.filter((n: any) => {
+          const t = n.judul.toLowerCase();
+          return t.includes("pesan");
+        });
+        setNotifications(orderNotifs);
+      }
+      setIsLoading(false);
+    }
+    fetchNotifs();
+  }, [router, supabase]);
+
+  const markAllAsRead = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      await supabase
+        .from("notifikasi")
+        .update({ status_dibaca: true, tgl_baca: new Date().toISOString() })
+        .eq("id_pengguna", user.id)
+        .eq("status_dibaca", false);
+      setNotifications(
+        notifications.map((n) => ({ ...n, status_dibaca: true })),
+      );
+    }
+  };
+
+  const markAsRead = async (id: string) => {
+    await supabase
+      .from("notifikasi")
+      .update({ status_dibaca: true, tgl_baca: new Date().toISOString() })
+      .eq("id_notifikasi", id);
+    setNotifications(
+      notifications.map((n) =>
+        n.id_notifikasi === id ? { ...n, status_dibaca: true } : n,
+      ),
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-primary-600 animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f5f5f5] flex flex-col font-sans text-slate-800">
       <div className="hidden lg:block">
         <Navbar />
       </div>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-0 md:px-4 lg:px-8 py-0 md:py-6">
+      <main className="flex-1 w-full px-0 py-0 mx-auto max-w-7xl md:px-4 lg:px-8 md:py-6">
         <div className="lg:flex lg:gap-6">
-          {/* Desktop Sidebar */}
           <aside className="hidden lg:block">
             <UserSidebar />
           </aside>
 
-          {/* Main Content */}
           <div className="flex-1 min-w-0">
-            {/* Mobile Header */}
             <MobileHeader
-              title="Notifikasi"
-              cartCount={50}
-              chatCount={1}
-              backHref="/user/account/profile"
+              title="Notifikasi Pesanan"
+              backHref="/user"
+              rightActions={[]}
             />
 
-            {/* Mobile Tabs */}
-            <div className="lg:hidden flex border-b border-slate-50 bg-white">
+            <div className="flex bg-white border-b lg:hidden border-slate-50">
               <Link
                 href="/user/notifications/order"
-                className="flex-1 py-3 text-center text-sm font-medium border-b-2 border-primary-600 text-primary-600"
+                className="flex-1 py-3 text-sm font-medium text-center border-b-2 border-primary-600 text-primary-600"
               >
                 Pesanan
               </Link>
               <Link
                 href="/user/notifications/promotion"
-                className="flex-1 py-3 text-center text-sm font-medium text-slate-500"
+                className="flex-1 py-3 text-sm font-medium text-center text-slate-500"
               >
                 Promosi
               </Link>
               <Link
                 href="/user/notifications/info"
-                className="flex-1 py-3 text-center text-sm font-medium text-slate-500"
+                className="flex-1 py-3 text-sm font-medium text-center text-slate-500"
               >
                 Info
               </Link>
             </div>
 
-            {/* Content Card */}
-            <div className="space-y-4 lg:space-y-0 lg:bg-white lg:shadow-sm lg:rounded-sm">
-              {/* Desktop Header Actions */}
-              <div className="hidden lg:flex justify-end p-4 border-b border-slate-50">
-                <button className="text-sm text-slate-500 hover:text-primary-600 transition-colors">
+            <div className="lg:bg-white lg:shadow-sm lg:rounded-sm">
+              <div className="justify-end hidden p-4 border-b lg:flex border-slate-50">
+                <button
+                  onClick={markAllAsRead}
+                  className="text-sm transition-colors text-slate-500 hover:text-primary-600"
+                >
                   Tandai sebagai sudah dibaca
                 </button>
               </div>
 
-              {/* Mobile Status Pesanan Header */}
-              <div className="lg:hidden bg-white border-b border-slate-100 p-4">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">Status Pesanan</span>
-                  <span className="bg-blue-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                    {notifications.length}
-                  </span>
-                </div>
-              </div>
-
-              {/* Notification List (Desktop & Mobile Main List) */}
-              <div className="divide-y divide-slate-50 bg-white">
-                {notifications.map((notif) => (
-                  <div
-                    key={notif.id}
-                    className={`flex gap-4 p-4 lg:p-6 transition-colors hover:bg-slate-50/50 cursor-pointer ${!notif.isRead ? "bg-orange-50/30" : "bg-white"}`}
-                  >
-                    {/* Thumbnail Image */}
-                    <div className="w-16 h-16 lg:w-20 lg:h-20 bg-slate-100 rounded-sm border border-slate-100 shrink-0 overflow-hidden self-start">
-                      <Image
-                        src={notif.image}
-                        alt="Thumbnail"
-                        width={80}
-                        height={80}
-                        className="w-full h-full object-cover"
-                        unoptimized
-                      />
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center justify-between lg:justify-start gap-3">
-                        <h3 className="text-sm lg:text-base font-medium text-slate-900">
-                          {notif.title}
-                        </h3>
-                        {!notif.isRead && (
-                          <span className="lg:hidden w-2 h-2 bg-primary-600 rounded-full"></span>
-                        )}
-                      </div>
-                      <p className="text-xs lg:text-sm text-slate-500 leading-relaxed max-w-2xl">
-                        {notif.description}
-                      </p>
-                      <p className="text-[11px] lg:text-xs text-slate-400 mt-2">
-                        {notif.date}
-                      </p>
-                    </div>
-
-                    {/* Desktop Action */}
-                    <div className="hidden lg:flex flex-col items-end justify-between shrink-0 min-w-37.5">
-                      <button className="text-xs px-3 py-1.5 border border-slate-200 text-slate-600 rounded-sm hover:bg-white hover:border-primary-600 hover:text-primary-600 transition-all">
-                        Tampilkan Rincian Pesanan
-                      </button>
-                      {!notif.isRead && (
-                        <span className="text-[10px] text-primary-600 font-medium">
-                          Belum dibaca
-                        </span>
-                      )}
-                    </div>
+              <div className="divide-y divide-slate-50">
+                {notifications.length === 0 ? (
+                  <div className="p-12 text-center text-slate-500">
+                    <ShoppingBag className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                    <p>Tidak ada notifikasi Pesanan.</p>
                   </div>
-                ))}
+                ) : (
+                  notifications.map((notif) => (
+                    <div
+                      key={notif.id_notifikasi}
+                      onClick={() =>
+                        !notif.status_dibaca && markAsRead(notif.id_notifikasi)
+                      }
+                      className={`flex flex-col lg:flex-row gap-4 p-4 lg:p-6 transition-colors hover:bg-slate-50/50 cursor-pointer ${!notif.status_dibaca ? "bg-orange-50/30" : "bg-white"}`}
+                    >
+                      <div className="flex items-center justify-center w-12 h-12 overflow-hidden border rounded-lg lg:w-16 lg:h-16 bg-slate-100 shrink-0 border-slate-100">
+                        <ShoppingBag className="w-6 h-6 lg:w-8 lg:h-8 text-slate-400" />
+                      </div>
+
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center justify-between gap-3 lg:justify-start">
+                          <h3 className="text-sm font-medium lg:text-base text-slate-900">
+                            {notif.judul}
+                          </h3>
+                        </div>
+                        <p className="text-xs leading-relaxed lg:text-sm text-slate-500">
+                          {notif.konten}
+                        </p>
+                        <p className="text-[11px] lg:text-xs text-slate-400 mt-2">
+                          {new Date(notif.tgl_kirim).toLocaleString("id-ID")}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
