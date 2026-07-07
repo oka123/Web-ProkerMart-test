@@ -11,6 +11,7 @@ import { MobileHeader } from "./MobileHeader";
 import { createClient } from "@/lib/supabase/client";
 import { getCartItems } from "@/lib/supabase/queries/cart";
 import { logout } from "./logout-button";
+import { SwitchRoleButton } from "./switch-role-button";
 
 interface NavbarProps {
   variant?: "default" | "cart";
@@ -25,6 +26,7 @@ export function Navbar({ variant = "default" }: NavbarProps) {
   const [loading, setLoading] = useState(true);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const [cartCount, setCartCount] = useState(0);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCartCount = async () => {
@@ -60,9 +62,19 @@ export function Navbar({ variant = "default" }: NavbarProps) {
     const supabase = createClient();
 
     // Get initial session
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       setUser(user);
       setLoading(false);
+      if (user) {
+        try {
+          const { data: pengguna } = await supabase
+            .from("pengguna")
+            .select("role")
+            .eq("id_pengguna", user.id)
+            .single();
+          setUserRole(pengguna?.role ?? null);
+        } catch {}
+      }
     });
 
     // Listen to auth changes
@@ -172,6 +184,12 @@ export function Navbar({ variant = "default" }: NavbarProps) {
                       </span>
                     )}
                   </Link>
+                  <Link
+                    href={userRole === "proker" || userRole === "organisasi" ? "/dashboard/chat" : "/user/chat"}
+                    className="p-2 text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-full transition-colors"
+                  >
+                    <MessageSquare className="w-5 h-5" />
+                  </Link>
 
                   {/* Profile / Auth State */}
 
@@ -205,6 +223,11 @@ export function Navbar({ variant = "default" }: NavbarProps) {
                           >
                             Pesanan Saya
                           </Link>
+                          <SwitchRoleButton
+                            currentRoute="/explore"
+                            className="flex w-full items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-primary-600"
+                            onNavigate={() => setIsUserMenuOpen(false)}
+                          />
                           <button
                             onClick={logout}
                             className="flex w-full items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
@@ -248,17 +271,12 @@ export function Navbar({ variant = "default" }: NavbarProps) {
                     2
                   </span>
                 </Link>
-                <button
-                  onClick={() =>
-                    window.dispatchEvent(new CustomEvent("openProkerChat"))
-                  }
+                <Link
+                  href={userRole === "proker" || userRole === "organisasi" ? "/dashboard/chat" : "/user/chat"}
                   className="p-2 text-slate-500 active:text-primary-600 relative"
                 >
                   <MessageSquare className="w-6 h-6" />
-                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
-                    9
-                  </span>
-                </button>
+                </Link>
               </>
             ) : null}
             <button

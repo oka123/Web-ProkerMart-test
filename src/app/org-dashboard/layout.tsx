@@ -6,12 +6,13 @@ import {
   Building2,
   Store,
   PieChart,
-  LogOut,
   PlusCircle,
   FileText,
-  Users
+  Users,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { LogoutButton } from "@/components/logout-button";
+import { SwitchRoleButton } from "@/components/switch-role-button";
 
 export default function OrgDashboardLayout({
   children,
@@ -80,11 +81,12 @@ export default function OrgDashboardLayout({
           </nav>
         </div>
 
-        <div className="p-4 border-t border-slate-800 bg-slate-950">
-          <button className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors w-full">
-            <LogOut className="w-5 h-5" />
-            Keluar
-          </button>
+        <div className="p-4 border-t border-slate-800 bg-slate-950 flex flex-col gap-2">
+          <SwitchRoleButton
+            currentRoute="/org-dashboard"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors w-full"
+          />
+          <LogoutButton className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors w-full" />
         </div>
       </div>
 

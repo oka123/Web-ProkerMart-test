@@ -1,17 +1,31 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Navbar } from "@/components/Navbar";
 import { ArrowRight, Store, Zap, ShieldCheck, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
-import { useEffect, useState } from "react";
 import { ProductCard } from "@/components/explore/ProductCard";
 import type { Product } from "@/lib/types/product";
+import { createClient } from "@/lib/supabase/client";
+import { fetchUserAccess } from "@/lib/auth-access";
 
 export default function Home() {
+  const router = useRouter();
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
   const [isLoadingTrending, setIsLoadingTrending] = useState(true);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const access = await fetchUserAccess(supabase, user.email!);
+      const targetRoute = access?.needsSelection ? "/auth/select-role" : "/explore";
+      router.push(targetRoute);
+    });
+  }, [router]);
 
   useEffect(() => {
     async function fetchTrending() {

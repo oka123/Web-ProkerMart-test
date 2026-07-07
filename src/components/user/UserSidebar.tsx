@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { User, Package, Bell, Ticket, PencilLine } from "lucide-react";
+import { User, Package, Bell, Ticket, PencilLine, MessageSquare } from "lucide-react";
 import Image from "next/image";
 import { LogoutButton } from "../logout-button";
+import { SwitchRoleButton } from "../switch-role-button";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -42,6 +43,18 @@ const menuItems = [
     href: "/user/voucher",
     icon: Ticket,
     color: "text-primary-600",
+  },
+  {
+    name: "Chat Toko",
+    href: "/user/chat",
+    icon: MessageSquare,
+    color: "text-primary-500",
+  },
+  {
+    name: "Bantuan & Chat",
+    href: "/user/bantuan",
+    icon: MessageSquare,
+    color: "text-emerald-500",
   },
   // { name: "Koin ProkerMart", href: "/user/coins", icon: Coins, color: "text-yellow-500" },
 ];
@@ -158,7 +171,11 @@ export function UserSidebar() {
           })}
         </nav>
 
-        <div className="pt-4 border-t border-slate-100">
+        <div className="pt-4 border-t border-slate-100 flex flex-col gap-2">
+          <SwitchRoleButton
+            currentRoute="/explore"
+            className="flex w-full bg-white items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer text-left"
+          />
           <LogoutButton className="flex w-full bg-white items-center gap-3 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer text-left" />
         </div>
       </div>
