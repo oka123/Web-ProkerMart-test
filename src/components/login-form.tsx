@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { createClient } from "@/lib/supabase/client";
 import { fetchUserAccess } from "@/lib/auth-access";
