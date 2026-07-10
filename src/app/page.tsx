@@ -16,13 +16,18 @@ export default function Home() {
   const router = useRouter();
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
   const [isLoadingTrending, setIsLoadingTrending] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     // Only check if we are already logged in to prefetch access, but do not redirect.
     // The role switching is now handled via the navbar.
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) return;
+      if (!user) {
+        setIsLoggedIn(false);
+        return;
+      }
+      setIsLoggedIn(true);
       // const access = await fetchUserAccess(supabase, user.email!);
       // const targetRoute = access?.needsSelection ? "/auth/select-role" : "/";
       // router.push(targetRoute);
@@ -91,12 +96,14 @@ export default function Home() {
                     Mulai Belanja
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Link>
-                  <Link
-                    href="/auth/sign-up"
-                    className="inline-flex items-center justify-center px-8 py-4 text-base font-medium transition-all bg-white border shadow-sm text-slate-700 dark:text-slate-200 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary-200 dark:hover:border-primary-700 hover:bg-primary-50 dark:hover:bg-slate-700 rounded-xl"
-                  >
-                    Daftarkan Organisasi
-                  </Link>
+                  {!isLoggedIn && (
+                    <Link
+                      href="/auth/sign-up"
+                      className="inline-flex items-center justify-center px-8 py-4 text-base font-medium transition-all bg-white border shadow-sm text-slate-700 dark:text-slate-200 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary-200 dark:hover:border-primary-700 hover:bg-primary-50 dark:hover:bg-slate-700 rounded-xl"
+                    >
+                      Daftarkan Organisasi
+                    </Link>
+                  )}
                 </div>
               </motion.div>
             </div>
