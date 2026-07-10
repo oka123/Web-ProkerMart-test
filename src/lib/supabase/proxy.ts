@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
+import { fetchUserAccess } from "@/lib/auth-access";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -45,9 +46,93 @@ export async function updateSession(request: NextRequest) {
   // IMPORTANT: If you remove getClaims() and you use server-side rendering
   // with the Supabase client, your users may be randomly logged out.
   const { data } = await supabase.auth.getClaims();
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const user = data?.claims;
+
+  const pathname = request.nextUrl.pathname;
+
+  // Authentication pages (only for Guests)
+  const isAuthPage =
+    pathname.startsWith("/auth/login") ||
+    pathname.startsWith("/auth/sign-up") ||
+    pathname.startsWith("/auth/forgot-password");
+
+  // Protected pages (only for Authenticated users)
+  const isProtectedPage =
+    pathname.startsWith("/user") ||
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/org-dashboard") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/auth/select-role");
+
+  if (user) {
+    // If logged in, redirect away from login/sign-up pages
+    if (isAuthPage) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
+
+    // Role-based authorization for dashboard and admin pages
+    if (
+      pathname.startsWith("/dashboard") ||
+      pathname.startsWith("/org-dashboard") ||
+      pathname.startsWith("/admin")
+    ) {
+      if (!user.email) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/";
+        return NextResponse.redirect(url);
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const access = await fetchUserAccess(supabase as any, user.email);
+
+      if (!access) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/";
+        return NextResponse.redirect(url);
+      }
+
+      // 1. Admin Panel Authorization
+      if (pathname.startsWith("/admin") && access.role !== "admin") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/";
+        return NextResponse.redirect(url);
+      }
+
+      // 2. Org Dashboard Authorization (Only Org and Admin)
+      if (
+        pathname.startsWith("/org-dashboard") &&
+        !access.hasOrganisasi &&
+        access.role !== "admin"
+      ) {
+        const url = request.nextUrl.clone();
+        // Redirect proker users to proker dashboard, otherwise redirect to home
+        url.pathname = access.hasProker ? "/dashboard" : "/";
+        return NextResponse.redirect(url);
+      }
+
+      // 3. Proker/General Dashboard Authorization (Only Proker and Admin)
+      if (
+        pathname.startsWith("/dashboard") &&
+        !access.hasProker &&
+        access.role !== "admin"
+      ) {
+        const url = request.nextUrl.clone();
+        // Redirect organization-only users to org-dashboard, others to home
+        url.pathname = access.hasOrganisasi ? "/org-dashboard" : "/";
+        return NextResponse.redirect(url);
+      }
+    }
+  } else {
+    // If guest attempts to access a protected page
+    if (isProtectedPage && !isAuthPage) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/auth/login";
+      url.searchParams.set("redirect", encodeURIComponent(pathname));
+      return NextResponse.redirect(url);
+    }
+  }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is.
   // If you're creating a new response object with NextResponse.next() make sure to:

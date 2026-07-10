@@ -16,13 +16,18 @@ export default function Home() {
   const router = useRouter();
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
   const [isLoadingTrending, setIsLoadingTrending] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     // Only check if we are already logged in to prefetch access, but do not redirect.
     // The role switching is now handled via the navbar.
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) return;
+      if (!user) {
+        setIsLoggedIn(false);
+        return;
+      }
+      setIsLoggedIn(true);
       // const access = await fetchUserAccess(supabase, user.email!);
       // const targetRoute = access?.needsSelection ? "/auth/select-role" : "/";
       // router.push(targetRoute);
@@ -70,7 +75,7 @@ export default function Home() {
               >
                 <span className="inline-flex items-center gap-2 px-3 py-1 mb-8 text-sm font-medium transition-colors border rounded-full bg-primary-50 dark:bg-primary-900/30 border-primary-100 dark:border-primary-800 text-primary-600 dark:text-primary-400">
                   <span className="flex w-2 h-2 rounded-full bg-primary-600 dark:bg-primary-400"></span>
-                  Platform Resmi Organisasi Mahasiswa
+                  Platform Digital Organisasi Mahasiswa
                 </span>
                 <h1 className="mb-8 text-5xl font-extrabold tracking-tight transition-colors md:text-6xl lg:text-7xl text-slate-900 dark:text-slate-100">
                   Dukung Proker Kampus, <br className="hidden md:block" />
@@ -80,8 +85,8 @@ export default function Home() {
                 </h1>
                 <p className="max-w-2xl mx-auto mb-8 text-lg leading-relaxed transition-colors lg:text-xl text-slate-600 dark:text-slate-300">
                   ProkerMart adalah ekosistem digital terpadu untuk jual-beli
-                  program kerja mahasiswa. Temukan merchandise, makanan, dan
-                  layanan dari berbagai organisasi dalam satu platform.
+                  produk program kerja mahasiswa. Temukan merchandise, makanan,
+                  dan layanan dari berbagai organisasi dalam satu platform.
                 </p>
                 <div className="flex flex-col justify-center gap-4 sm:flex-row">
                   <Link
@@ -91,12 +96,14 @@ export default function Home() {
                     Mulai Belanja
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Link>
-                  <Link
-                    href="/auth/sign-up"
-                    className="inline-flex items-center justify-center px-8 py-4 text-base font-medium transition-all bg-white border shadow-sm text-slate-700 dark:text-slate-200 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary-200 dark:hover:border-primary-700 hover:bg-primary-50 dark:hover:bg-slate-700 rounded-xl"
-                  >
-                    Daftarkan Organisasi
-                  </Link>
+                  {!isLoggedIn && (
+                    <Link
+                      href="/auth/sign-up"
+                      className="inline-flex items-center justify-center px-8 py-4 text-base font-medium transition-all bg-white border shadow-sm text-slate-700 dark:text-slate-200 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary-200 dark:hover:border-primary-700 hover:bg-primary-50 dark:hover:bg-slate-700 rounded-xl"
+                    >
+                      Daftarkan Organisasi
+                    </Link>
+                  )}
                 </div>
               </motion.div>
             </div>
@@ -108,7 +115,7 @@ export default function Home() {
           <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
             <div className="mb-12 text-center">
               <h2 className="mb-4 text-3xl font-bold transition-colors text-slate-900 dark:text-white">
-                Mengapa Menggunakan ProkerMart?
+                Mengapa Memilih ProkerMart?
               </h2>
               <p className="transition-colors text-slate-600 dark:text-slate-400">
                 Membawa transparansi dan efisiensi dalam transaksi kampus.
@@ -122,14 +129,14 @@ export default function Home() {
                     <Store className="w-8 h-8 text-primary-500 dark:text-primary-400" />
                   ),
                   title: "Satu Platform, Banyak Toko",
-                  desc: "Setiap organisasi memiliki etalase digital. Jelajahi berbagai produk tanpa harus mencari di berbagai grup chat.",
+                  desc: "Setiap organisasi memiliki etalase produk. Jelajahi berbagai produk dari berbagai program kerja dalam satu platform.",
                 },
                 {
                   icon: (
                     <Zap className="w-8 h-8 text-indigo-500 dark:text-indigo-400" />
                   ),
                   title: "Transaksi Digital Real-time",
-                  desc: "Pembayaran QRIS dan transfer bank. Tidak ada lagi pencatatan manual yang rawan kesalahan.",
+                  desc: "Mendukung pembayaran via QRIS dan COD dengan pencatatan transaksi yang otomatis dan akurat.",
                 },
                 {
                   icon: (
@@ -171,7 +178,7 @@ export default function Home() {
                   Produk Terbaru
                 </h2>
                 <p className="transition-colors text-slate-600 dark:text-slate-400">
-                  Produk yang baru saja ditambahkan.
+                  Lihat produk terbaru dari berbagai organisasi mahasiswa.
                 </p>
               </div>
               <Link
