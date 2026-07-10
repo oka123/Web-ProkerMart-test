@@ -5,8 +5,17 @@ export async function POST(req: Request) {
   try {
     const { subscription, userId } = await req.json();
 
-    if (!subscription || !subscription.endpoint || !userId) {
-      return NextResponse.json({ error: "Invalid subscription data or missing user ID" }, { status: 400 });
+    if (!subscription || !subscription.endpoint) {
+      return NextResponse.json({ error: "Invalid subscription data or missing endpoint" }, { status: 400 });
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: "userId is required" }, { status: 400 });
+    }
+
+    // Validate keys exist
+    if (!subscription.keys?.p256dh || !subscription.keys?.auth) {
+      return NextResponse.json({ error: "Subscription keys (p256dh, auth) are required" }, { status: 400 });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -25,7 +34,7 @@ export async function POST(req: Request) {
 
     if (error) {
       console.error("[Push Subscribe API] DB Error:", error);
-      return NextResponse.json({ error: "Database error" }, { status: 500 });
+      return NextResponse.json({ error: "Database error", details: error }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
