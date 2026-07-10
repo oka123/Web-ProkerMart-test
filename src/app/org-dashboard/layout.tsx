@@ -216,7 +216,7 @@ export default function OrgDashboardLayout({
       {/* Sidebar */}
       <div className="w-64 bg-slate-900 text-slate-300  flex-col hidden md:flex">
         <div className="h-16 flex items-center px-6 border-b border-slate-800 bg-slate-950">
-          <Logo />
+          <Logo theme="dark"/>
         </div>
 
         <div className="flex-1 overflow-y-auto py-6 px-4">
