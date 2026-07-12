@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { fetchUserAccess } from "@/lib/auth-access";
+
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, Suspense } from "react";
@@ -12,7 +13,6 @@ import { Logo } from "@/components/Logo";
 function LoginFormInner({ redirectTo }: { redirectTo?: string }) {
   const searchParams = useSearchParams();
   const redirect = redirectTo ?? searchParams.get("redirect");
-  const destination = redirect ? decodeURIComponent(redirect) : "/";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -52,8 +52,9 @@ function LoginFormInner({ redirectTo }: { redirectTo?: string }) {
         throw new Error("Gagal membaca informasi pengguna setelah login.");
       }
 
-      if (destination) {
-        router.push(destination);
+      if (redirect) {
+        router.push(decodeURIComponent(redirect));
+        router.refresh();
         return;
       }
 
@@ -63,12 +64,19 @@ function LoginFormInner({ redirectTo }: { redirectTo?: string }) {
         console.debug("[Login] access:", access);
       }
 
-      // const targetRoute = access?.needsSelection ? "/auth/select-role" : "/";
-      // router.push(targetRoute);
+      let targetRoute = "/explore";
+      if (access?.role === "admin") {
+        targetRoute = "/admin";
+      } else if (access?.hasOrganisasi && !access?.hasProker) {
+        targetRoute = "/org-dashboard";
+      } else if (access?.hasProker && !access?.hasOrganisasi) {
+        targetRoute = "/dashboard";
+      } else if (access?.hasOrganisasi && access?.hasProker) {
+        targetRoute = "/auth/select-role";
+      }
 
-      // Selalu arahkan ke halaman utama ("/") setelah login,
-      // role selection dilakukan via Navbar (SwitchRoleButton).
-      router.push("/");
+      router.push(targetRoute);
+      router.refresh();
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : "Email atau password salah.",

@@ -110,8 +110,9 @@ export function RekomendasiSection() {
             if (idTokoFavorit) {
                 const { data: subTokoData } = await supabase
                     .from("sub_toko")
-                    .select("id_sub_toko, toko(id_organisasi)")
-                    .eq("toko.id_organisasi", idTokoFavorit);
+                    .select("id_sub_toko, toko!inner(id_organisasi)")
+                    .eq("toko.id_organisasi", idTokoFavorit)
+                    .eq("status", "active");
 
                 daftarSubTokoOrganisasi = (subTokoData ?? [])
                     .filter((s: any) => s.toko?.id_organisasi === idTokoFavorit)
@@ -123,8 +124,9 @@ export function RekomendasiSection() {
             // ── Langkah B: Fetch produk berdasarkan dua strategi ─────────────────
             let query = supabase
                 .from("produk")
-                .select(`*, sub_toko(*, toko(*, organisasi(*)))`)
+                .select(`*, sub_toko!inner(*, toko(*, organisasi(*)))`)
                 .eq("status_aktif", true)
+                .eq("sub_toko.status", "active")
                 .limit(10);
 
             if (kategoriFavorit || daftarSubTokoOrganisasi.length > 0) {

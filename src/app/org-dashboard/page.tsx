@@ -119,23 +119,29 @@ export default function OrgDashboardPage() {
         (s) => s.status === "active"
       ).length;
 
-      // 4. Fetch total members count
-      let totalMembers = 0;
+      // 4. Fetch unique members count
+      const uniqueUsers = new Set<string>();
+
       if (subTokoIds.length > 0) {
-        const { count } = await supabase
+        const { data: stm } = await supabase
           .from("sub_toko_member")
-          .select("id_member", { count: "exact", head: true })
+          .select("id_pengguna")
           .in("id_sub_toko", subTokoIds);
-        totalMembers = count ?? 0;
+        (stm || []).forEach((m: any) => {
+          if (m.id_pengguna) uniqueUsers.add(m.id_pengguna);
+        });
       }
 
       // Also count org-level members
-      const { count: orgMemberCount } = await supabase
+      const { data: om } = await supabase
         .from("organisasi_member")
-        .select("id_member", { count: "exact", head: true })
+        .select("id_pengguna")
         .eq("id_organisasi", org.id_organisasi);
+      (om || []).forEach((m: any) => {
+        if (m.id_pengguna) uniqueUsers.add(m.id_pengguna);
+      });
 
-      totalMembers += orgMemberCount ?? 0;
+      const totalMembers = uniqueUsers.size;
 
       setStats({
         totalRevenue,
