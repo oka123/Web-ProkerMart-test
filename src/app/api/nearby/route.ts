@@ -66,7 +66,8 @@ export async function GET(request: NextRequest) {
         )
       `,
       )
-      .in("id_sub_toko", ids);
+      .in("id_sub_toko", ids)
+      .eq("status", "active");
 
     // Filter pencarian
     if (search.trim()) {

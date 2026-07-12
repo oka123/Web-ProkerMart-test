@@ -69,6 +69,28 @@ export async function acceptInvitation(token: string) {
       throw new Error(`Gagal bergabung: ${insertError.message}`);
     }
 
+    // Jika ada penugasan ke sub_toko (proker), tambahkan juga ke sub_toko_member
+    if (invite.id_sub_toko) {
+      let prokerRole = 'AnggotaPenggalianDana'; // default
+      if (invite.jabatan === 'ketua_pelaksana' || invite.jabatan === 'ketua') prokerRole = 'KetuaProker';
+      else if (invite.jabatan === 'wakil_ketua') prokerRole = 'WakilProker';
+      else if (invite.jabatan === 'sekretaris') prokerRole = 'SekretarisProker';
+      else if (invite.jabatan === 'bendahara') prokerRole = 'BendaharaProker';
+
+      const { error: subTokoMemberError } = await adminClient
+        .from("sub_toko_member")
+        .insert({
+          id_sub_toko: invite.id_sub_toko,
+          id_pengguna: authData.user.id,
+          role: prokerRole,
+          status: 'active'
+        });
+
+      if (subTokoMemberError && subTokoMemberError.code !== '23505') {
+        console.error("[acceptInvitation] Failed to insert sub_toko_member:", subTokoMemberError);
+      }
+    }
+
     // Upgrade role in pengguna table (from 'pembeli' to 'organisasi' or 'proker')
     const { error: roleError } = await adminClient
       .from("pengguna")

@@ -19,9 +19,10 @@ const PRODUCT_SELECT = `
   estimasi_siap,
   min_order,
   dp_persen,
-  sub_toko (
+  sub_toko!inner (
     id_sub_toko,
     nama_proker,
+    status,
     deskripsi,
     foto_sampul,
     jadwal_operasional,
@@ -55,6 +56,7 @@ export async function getProducts(
       .from("produk")
       .select(PRODUCT_SELECT)
       .eq("status_aktif", true)
+      .eq("sub_toko.status", "active")
       .order("tgl_dibuat", { ascending: false });
 
     if (category && category !== "Semua") {
@@ -92,7 +94,8 @@ export async function getProductById(id: string): Promise<Product | null> {
       .select(PRODUCT_SELECT)
       .eq("id_produk", id)
       .eq("status_aktif", true)
-      .single();
+      .eq("sub_toko.status", "active")
+      .maybeSingle();
 
     if (error) {
       console.error("[Products - getProductById] Error:", error);

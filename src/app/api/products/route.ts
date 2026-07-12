@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 const PRODUCT_SELECT = `
   id_produk, nama_produk, deskripsi, harga, stok, foto, kategori, status_aktif, tgl_dibuat, metode_jualan, preorder,
-  sub_toko (
-    id_sub_toko, nama_proker, jadwal_operasional,
-    toko (
+  sub_toko!inner (
+    id_sub_toko, nama_proker, jadwal_operasional, status,
+    toko!inner (
       id_toko, nama_toko,
       organisasi ( id_organisasi, nama_organisasi )
     )
@@ -44,7 +44,8 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from("produk")
       .select(PRODUCT_SELECT, { count: "exact" })
-      .eq("status_aktif", true);
+      .eq("status_aktif", true)
+      .eq("sub_toko.status", "active");
 
     // ── Category filter ─────────────────────────────────────────────────────
     if (category && category !== "Semua") {
