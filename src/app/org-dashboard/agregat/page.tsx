@@ -374,32 +374,31 @@ export default function ReportsPage() {
                   <motion.div
                     key={i}
                     initial={{ height: 0 }}
-                    animate={{ height: `${bar.value}%` }}
+                    animate={{ height: `${Math.max(bar.value, 1)}%` }} // minimum 1% height for visibility if there is no data or zero
                     transition={{
                       type: "spring",
                       stiffness: 50,
                       delay: i * 0.05,
                     }}
-                    className="w-full bg-primary-100 hover:bg-primary-500 rounded-t-md relative group transition-colors cursor-pointer"
+                    className={`w-full ${bar.value === 0 && bar.count === 0 ? 'bg-slate-50' : 'bg-primary-100 hover:bg-primary-500'} rounded-t-md relative group transition-colors cursor-pointer`}
                   >
-                    <div className="opacity-0 group-hover:opacity-100 absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs py-1 px-2 rounded whitespace-nowrap transition-opacity pointer-events-none">
-                      {bar.count} Pesanan
-                    </div>
+                    {bar.label && (
+                      <div className="opacity-0 group-hover:opacity-100 absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs py-1.5 px-2.5 rounded whitespace-nowrap transition-opacity pointer-events-none z-10 flex flex-col items-center">
+                        <span className="font-bold">{bar.count} Pesanan</span>
+                        <span className="text-[10px] text-slate-300">
+                          {new Date(bar.label).toLocaleDateString("id-ID", { day: 'numeric', month: 'short' })}
+                        </span>
+                      </div>
+                    )}
                   </motion.div>
                 ))}
               </div>
-              <div className="flex justify-between mt-4 text-xs font-medium text-slate-400 px-2">
-                {reportData.chartData.length > 0 && (
-                  <>
-                    <span>{reportData.chartData[0]?.label || ""}</span>
-                    <span>
-                      {reportData.chartData[Math.floor(reportData.chartData.length / 2)]?.label || ""}
-                    </span>
-                    <span>
-                      {reportData.chartData[reportData.chartData.length - 1]?.label || ""}
-                    </span>
-                  </>
-                )}
+              <div className="flex items-start justify-between gap-2 px-2 mt-3 text-[10px] font-medium text-slate-400 text-center">
+                {reportData.chartData.map((bar, i) => (
+                  <div key={i} className="w-full truncate">
+                    {bar.label ? new Date(bar.label).toLocaleDateString("id-ID", { day: 'numeric', month: 'short' }) : "-"}
+                  </div>
+                ))}
               </div>
             </>
           )}
