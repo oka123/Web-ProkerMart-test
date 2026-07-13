@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+
 import { motion, AnimatePresence } from "framer-motion";
 import { Download, TrendingUp, BarChart3, ShoppingBag, Wifi, WifiOff, Loader2, Calendar, Wallet, X, CreditCard, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useDashboard } from "@/lib/context/DashboardContext";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 
 type RangeKey = "1d" | "1w" | "1m" | "3m" | "6m";
 
@@ -141,6 +145,15 @@ export default function ReportsPage() {
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [form, setForm] = useState({ jumlah: "", nama_bank: "", no_rekening: "", nama_pemilik: "" });
   const [formError, setFormError] = useState("");
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);   // ← baru
+  const [exportFormat, setExportFormat] = useState<"csv" | "excel" | "pdf" | null>(null); // ← baru
+  const [exportStartDate, setExportStartDate] = useState("");
+  const [exportEndDate, setExportEndDate] = useState("");
+  const [exportDateError, setExportDateError] = useState("");
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
 
   const fetchSaldo = useCallback(async (stId: string) => {
     try {
@@ -273,6 +286,74 @@ export default function ReportsPage() {
     }
   }, [supabase]);
 
+  const fetchReportData = async (startDate: string, endDate: string) => {
+    if (!subTokoId) return null;
+    const endDateTime = `${endDate}T23:59:59`;
+
+    const [pesananRes, rekapRes] = await Promise.all([
+      supabase
+        .from("pesanan")
+        .select(`
+        id_pesanan, total_harga, tgl_pesan,
+        pembayaran(metode_pembayaran, status_bayar),
+        detail_pesanan(jumlah, sub_total, id_produk, produk(nama_produk))
+      `)
+        .eq("id_sub_toko", subTokoId)
+        .eq("status_pesanan", "selesai")
+        .gte("tgl_pesan", startDate)
+        .lte("tgl_pesan", endDateTime),
+      supabase
+        .from("rekap_jualan_offline")
+        .select("id, total_harga, jumlah_item, tanggal, id_produk, metode_pembayaran, produk(nama_produk)")
+        .eq("id_sub_toko", subTokoId)
+        .gte("tanggal", startDate)
+        .lte("tanggal", endDate),
+    ]);
+
+    const pesananList: any[] = pesananRes.data ?? [];
+    const rekapList: any[] = rekapRes.data ?? [];
+
+    const omzetOnline = pesananList.reduce((s, p) => s + Number(p.total_harga), 0);
+    const omzetOffline = rekapList.reduce((s, r) => s + Number(r.total_harga), 0);
+    const byMethod = { qris: 0, transfer: 0, tunai: 0 };
+    pesananList.forEach((p) => {
+      const bayar = p.pembayaran;
+      if (bayar?.status_bayar === "dibayar") {
+        const m = bayar.metode_pembayaran as keyof typeof byMethod;
+        if (m in byMethod) byMethod[m] += Number(p.total_harga);
+      }
+    });
+    rekapList.forEach((r) => {
+      const m = r.metode_pembayaran as keyof typeof byMethod;
+      if (m && m in byMethod) byMethod[m] += Number(r.total_harga);
+    });
+
+    const produkMap: Record<string, TopProduct> = {};
+    pesananList.forEach((p) => {
+      (p.detail_pesanan ?? []).forEach((d: any) => {
+        if (!d.id_produk) return;
+        if (!produkMap[d.id_produk]) produkMap[d.id_produk] = { id_produk: d.id_produk, nama_produk: d.produk?.nama_produk ?? "—", totalTerjual: 0, totalOmzet: 0 };
+        produkMap[d.id_produk].totalTerjual += Number(d.jumlah);
+        produkMap[d.id_produk].totalOmzet += Number(d.sub_total);
+      });
+    });
+    rekapList.forEach((r) => {
+      if (!r.id_produk) return;
+      if (!produkMap[r.id_produk]) produkMap[r.id_produk] = { id_produk: r.id_produk, nama_produk: r.produk?.nama_produk ?? "—", totalTerjual: 0, totalOmzet: 0 };
+      produkMap[r.id_produk].totalTerjual += Number(r.jumlah_item);
+      produkMap[r.id_produk].totalOmzet += Number(r.total_harga);
+    });
+
+    const topProductsExport = Object.values(produkMap)
+      .sort((a, b) => b.totalTerjual - a.totalTerjual)
+      .slice(0, 5);
+
+    return {
+      summary: { omzetOnline, omzetOffline, countOnline: pesananList.length, countOffline: rekapList.length, byMethod },
+      topProducts: topProductsExport,
+    };
+  };
+
   useEffect(() => {
     setInitialLoading(false);
     if (subTokoId) {
@@ -280,6 +361,19 @@ export default function ReportsPage() {
       fetchSaldo(subTokoId);
     }
   }, [subTokoId, range, fetchData, fetchSaldo]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        exportMenuRef.current &&
+        !exportMenuRef.current.contains(e.target as Node)
+      ) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const totalOmzet = summary.omzetOnline + summary.omzetOffline;
   const maxChart = Math.max(...chartBuckets.map((b) => b.online + b.offline), 1);
@@ -293,6 +387,109 @@ export default function ReportsPage() {
     );
   }
 
+  const handleExportCSV = (data: { summary: SummaryData; topProducts: TopProduct[] }, startDate: string, endDate: string) => {
+    const headers = ["Nama Produk", "Total Terjual", "Total Omzet"];
+    const rows = data.topProducts.map((p) => [p.nama_produk, p.totalTerjual, p.totalOmzet]);
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${cell}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `laporan-penjualan-${startDate}_${endDate}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportExcel = (data: { summary: SummaryData; topProducts: TopProduct[] }, startDate: string, endDate: string) => {
+    const summarySheet = XLSX.utils.json_to_sheet([
+      { Keterangan: "Periode", Nilai: `${startDate} s/d ${endDate}` },
+      { Keterangan: "Omzet Online", Nilai: data.summary.omzetOnline },
+      { Keterangan: "Omzet Offline", Nilai: data.summary.omzetOffline },
+      { Keterangan: "Jumlah Transaksi Online", Nilai: data.summary.countOnline },
+      { Keterangan: "Jumlah Transaksi Offline", Nilai: data.summary.countOffline },
+    ]);
+    const productSheet = XLSX.utils.json_to_sheet(
+      data.topProducts.map((p) => ({
+        "Nama Produk": p.nama_produk,
+        "Total Terjual": p.totalTerjual,
+        "Total Omzet": p.totalOmzet,
+      }))
+    );
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, summarySheet, "Ringkasan");
+    XLSX.utils.book_append_sheet(workbook, productSheet, "Produk Terlaris");
+    XLSX.writeFile(workbook, `laporan-penjualan-${startDate}_${endDate}.xlsx`);
+  };
+
+  const handleExportPDF = (data: { summary: SummaryData; topProducts: TopProduct[] }, startDate: string, endDate: string) => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Laporan Penjualan ProkerMart", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Periode: ${startDate} s/d ${endDate}`, 14, 22);
+
+    autoTable(doc, {
+      startY: 28,
+      head: [["Keterangan", "Nilai"]],
+      body: [
+        ["Omzet Online", `Rp ${data.summary.omzetOnline.toLocaleString("id-ID")}`],
+        ["Omzet Offline", `Rp ${data.summary.omzetOffline.toLocaleString("id-ID")}`],
+        ["Jumlah Transaksi Online", String(data.summary.countOnline)],
+        ["Jumlah Transaksi Offline", String(data.summary.countOffline)],
+      ],
+    });
+
+    const finalY = (doc as any).lastAutoTable.finalY || 60;
+    doc.text("Produk Terlaris", 14, finalY + 10);
+
+    autoTable(doc, {
+      startY: finalY + 14,
+      head: [["Nama Produk", "Total Terjual", "Total Omzet"]],
+      body: data.topProducts.map((p) => [
+        p.nama_produk,
+        String(p.totalTerjual),
+        `Rp ${p.totalOmzet.toLocaleString("id-ID")}`,
+      ]),
+    });
+    doc.save(`laporan-penjualan-${startDate}_${endDate}.pdf`)
+  };
+
+
+
+  const handleConfirmExport = async () => {
+    if (!exportFormat) return;
+
+    // Validasi tanggal
+    if (!exportStartDate || !exportEndDate) {
+      setExportDateError("Pilih tanggal mulai dan tanggal akhir.");
+      return;
+    }
+    if (exportStartDate > exportEndDate) {
+      setExportDateError("Tanggal mulai tidak boleh setelah tanggal akhir.");
+      return;
+    }
+    setExportDateError("");
+
+    setIsExporting(true);
+    try {
+      const data = await fetchReportData(exportStartDate, exportEndDate);
+      if (!data) return;
+
+      if (exportFormat === "csv") handleExportCSV(data, exportStartDate, exportEndDate);
+      else if (exportFormat === "excel") handleExportExcel(data, exportStartDate, exportEndDate);
+      else if (exportFormat === "pdf") handleExportPDF(data, exportStartDate, exportEndDate);
+
+      setShowExportModal(false);
+    } catch (err) {
+      console.error("[ReportsPage - handleConfirmExport] Error:", err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -300,9 +497,58 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-bold text-slate-900">Laporan Penjualan</h1>
           <p className="text-sm text-slate-500">Rekapitulasi penjualan online dan offline sub-toko Anda.</p>
         </div>
-        <button className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2">
-          <Download className="w-4 h-4" /> Export
-        </button>
+        <div className="relative" ref={exportMenuRef}>
+          <button
+            onClick={() => setShowExportMenu((v) => !v)}
+            className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" /> Export
+          </button>
+
+          {showExportMenu && (
+            <div className="absolute right-0 top-full mt-2 w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-2 z-50">
+              <button
+                onClick={() => {
+                  setExportFormat("csv");
+                  setExportStartDate("");
+                  setExportEndDate("");
+                  setExportDateError("");
+                  setShowExportModal(true);
+                  setShowExportMenu(false);
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Export CSV
+              </button>
+              <button
+                onClick={() => {
+                  setExportFormat("excel");
+                  setExportStartDate("");
+                  setExportEndDate("");
+                  setExportDateError("");
+                  setShowExportModal(true);
+                  setShowExportMenu(false);
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Export Excel
+              </button>
+              <button
+                onClick={() => {
+                  setExportFormat("pdf");
+                  setExportStartDate("");
+                  setExportEndDate("");
+                  setExportDateError("");
+                  setShowExportModal(true);
+                  setShowExportMenu(false);
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Export PDF
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Range Filter */}
@@ -312,11 +558,10 @@ export default function ReportsPage() {
           <button
             key={opt.key}
             onClick={() => setRange(opt.key)}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-              range === opt.key
-                ? "bg-primary-600 text-white"
-                : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-            }`}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${range === opt.key
+              ? "bg-primary-600 text-white"
+              : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
           >
             {opt.label}
           </button>
@@ -405,6 +650,7 @@ export default function ReportsPage() {
                     <h2 className="font-bold text-slate-900">Tarik Uang</h2>
                     <p className="text-xs text-slate-400">Saldo: Rp {(allTimeOmzet - totalDitarik).toLocaleString("id-ID")}</p>
                   </div>
+
                 </div>
                 <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
                   <X className="w-5 h-5" />
@@ -466,6 +712,78 @@ export default function ReportsPage() {
                   className="flex-1 bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2">
                   {withdrawLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                   Tarik Sekarang
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showExportModal && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowExportModal(false); }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6"
+            >
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="font-bold text-slate-900">
+                  Export {exportFormat?.toUpperCase()}
+                </h2>
+                <button onClick={() => setShowExportModal(false)} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <label className="text-xs font-semibold text-slate-600 block mb-2">
+                Pilih rentang waktu laporan
+              </label>
+              <div className="grid grid-cols-2 gap-3 mb-2">
+                <div>
+                  <label className="text-[11px] text-slate-500 block mb-1">Dari Tanggal</label>
+                  <input
+                    type="date"
+                    value={exportStartDate}
+                    onChange={(e) => setExportStartDate(e.target.value)}
+                    max={exportEndDate || undefined}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-500 block mb-1">Hingga Tanggal</label>
+                  <input
+                    type="date"
+                    value={exportEndDate}
+                    onChange={(e) => setExportEndDate(e.target.value)}
+                    min={exportStartDate || undefined}
+                    max={new Date().toISOString().slice(0, 10)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"
+                  />
+                </div>
+              </div>
+              {exportDateError && (
+                <p className="text-xs text-red-500 font-medium mb-3">{exportDateError}</p>
+              )}
+              <div className="mb-3" />
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  className="flex-1 border border-slate-200 text-slate-600 hover:bg-slate-50 py-2.5 rounded-xl text-sm font-medium transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleConfirmExport}
+                  disabled={isExporting}
+                  className="flex-1 bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                >
+                  {isExporting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Cetak
                 </button>
               </div>
             </motion.div>
