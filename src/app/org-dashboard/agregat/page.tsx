@@ -6,15 +6,26 @@ import {
   Filter,
   TrendingUp,
   ShoppingCart,
-  CreditCard,
   BarChart3,
   Loader2,
   Store,
   Calendar,
-  LayoutList
+  LayoutList,
+  Download,
+  FileText,
+  FileSpreadsheet
 } from "lucide-react";
 import { useOrgDashboard } from "@/lib/context/OrgDashboardContext";
 import { createClient } from "@/lib/supabase/client";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface SubTokoOption {
   id: string;
@@ -35,7 +46,8 @@ export default function ReportsPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProker, setSelectedProker] = useState("all");
-  const [timeFilter, setTimeFilter] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const fetchData = useCallback(async () => {
     if (!org?.id_toko) { setLoading(false); return; }
@@ -66,12 +78,15 @@ export default function ReportsPage() {
           .in("id_sub_toko", subTokoIds)
           .eq("status_pesanan", "selesai");
 
-        if (timeFilter !== "all") {
-          const date = new Date();
-          if (timeFilter === "7d") date.setDate(date.getDate() - 7);
-          else if (timeFilter === "30d") date.setMonth(date.getMonth() - 1);
-          else if (timeFilter === "1y") date.setFullYear(date.getFullYear() - 1);
-          query = query.gte("tgl_pesan", date.toISOString());
+        if (startDate) {
+          const sDate = new Date(startDate);
+          sDate.setHours(0, 0, 0, 0);
+          query = query.gte("tgl_pesan", sDate.toISOString());
+        }
+        if (endDate) {
+          const eDate = new Date(endDate);
+          eDate.setHours(23, 59, 59, 999);
+          query = query.lte("tgl_pesan", eDate.toISOString());
         }
 
         const { data: ordersData } = await query;
@@ -91,7 +106,7 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [org?.id_toko, timeFilter]);
+  }, [org?.id_toko, startDate, endDate]);
 
   useEffect(() => {
     fetchData();
@@ -107,7 +122,6 @@ export default function ReportsPage() {
   const reportData = useMemo(() => {
     const revenue = filteredOrders.reduce((sum, o) => sum + o.total_harga, 0);
     const orderCount = filteredOrders.length;
-    const aov = orderCount > 0 ? Math.round(revenue / orderCount) : 0;
 
     // Simple chart: group by day (last 7 entries or aggregate)
     const dayMap: Record<string, number> = {};
@@ -131,7 +145,7 @@ export default function ReportsPage() {
       chartData.unshift({ label: "", value: 0, count: 0 });
     }
 
-    return { revenue, orders: orderCount, aov, chartData };
+    return { revenue, orders: orderCount, chartData };
   }, [filteredOrders]);
 
   // Top selling products
@@ -225,6 +239,156 @@ export default function ReportsPage() {
       minimumFractionDigits: 0,
     }).format(number);
 
+  const getPeriodText = () => {
+    if (startDate && endDate) {
+      return `${new Date(startDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' })} - ${new Date(endDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    } else if (startDate) {
+      return `Sejak ${new Date(startDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    } else if (endDate) {
+      return `Hingga ${new Date(endDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    }
+    return "Semua Waktu";
+  };
+
+  const getReportTitle = () => {
+    let title = "Laporan Keuangan";
+    title += ` - ${getPeriodText()}`;
+
+    if (selectedProker !== "all") {
+      const proker = subTokoOptions.find(p => p.id === selectedProker);
+      if (proker) title += ` (${proker.name})`;
+    }
+    return title;
+  };
+
+  const getExportData = () => {
+    const periodText = getPeriodText();
+    const summaryData = [
+      ["Periode", periodText],
+      [""],
+      ["Ringkasan", ""],
+      ["Total Pendapatan", formatRupiah(reportData.revenue)],
+      ["Total Pesanan", `${reportData.orders} transaksi`]
+    ];
+
+    const prokerData = selectedProker === "all" ? [
+      ["", ""],
+      ["Performa Tiap Proker", ""],
+      ["Nama Proker", "Total Pesanan", "Total Pendapatan"],
+      ...prokerPerformance.map(p => [
+        p.name,
+        p.orders.toString(),
+        formatRupiah(p.revenue)
+      ])
+    ] : [];
+
+    const transactionData = [
+      ["", ""],
+      ["Daftar Transaksi Selesai", ""],
+      ["Tanggal", "Nama Proker", "Total Harga"],
+      ...filteredOrders.map(o => {
+        const prokerName = subTokoOptions.find(p => p.id === o.id_sub_toko)?.name || "-";
+        return [
+          new Date(o.tgl_pesan).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' }),
+          prokerName,
+          o.total_harga.toString()
+        ];
+      })
+    ];
+
+    return { summaryData, prokerData, transactionData };
+  };
+
+  const exportToCSV = () => {
+    const { summaryData, prokerData, transactionData } = getExportData();
+    const rows = [...summaryData, ...prokerData, ...transactionData];
+    
+    let csvContent = "data:text/csv;charset=utf-8,";
+    rows.forEach(rowArray => {
+      const row = rowArray.map(cell => `"${cell}"`).join(",");
+      csvContent += row + "\r\n";
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${getReportTitle()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportToExcel = () => {
+    const { summaryData, prokerData, transactionData } = getExportData();
+    const rows = [...summaryData, ...prokerData, ...transactionData];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan");
+
+    XLSX.writeFile(workbook, `${getReportTitle()}.xlsx`);
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const title = getReportTitle();
+    const periodText = getPeriodText();
+    
+    doc.setFontSize(14);
+    doc.text(title, 14, 20);
+
+    doc.setFontSize(10);
+    doc.text(`Periode: ${periodText}`, 14, 28);
+
+    doc.text("Ringkasan", 14, 38);
+    autoTable(doc, {
+      startY: 40,
+      head: [["Deskripsi", "Nilai"]],
+      body: [
+        ["Total Pendapatan", formatRupiah(reportData.revenue)],
+        ["Total Pesanan", `${reportData.orders} transaksi`]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246] },
+    });
+
+    let currentY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+
+    if (selectedProker === "all") {
+      doc.text("Performa Tiap Proker", 14, currentY);
+      autoTable(doc, {
+        startY: currentY + 2,
+        head: [["Nama Proker", "Total Pesanan", "Total Pendapatan"]],
+        body: prokerPerformance.map(p => [
+          p.name,
+          p.orders.toString(),
+          formatRupiah(p.revenue)
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [59, 130, 246] },
+      });
+      currentY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+    }
+
+    doc.text("Daftar Transaksi Selesai", 14, currentY);
+    autoTable(doc, {
+      startY: currentY + 2,
+      head: [["Tanggal", "Nama Proker", "Total Harga"]],
+      body: filteredOrders.map(o => {
+        const prokerName = subTokoOptions.find(p => p.id === o.id_sub_toko)?.name || "-";
+        return [
+          new Date(o.tgl_pesan).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' }),
+          prokerName,
+          formatRupiah(o.total_harga)
+        ];
+      }),
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246] },
+    });
+
+    doc.save(`${title}.pdf`);
+  };
+
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto flex items-center justify-center py-24">
@@ -249,20 +413,26 @@ export default function ReportsPage() {
 
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Time Filter */}
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Calendar className="h-4 w-4 text-slate-400" />
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="pl-3 pr-3 py-2.5 bg-slate-50 border border-slate-200 text-sm font-medium rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none w-full sm:w-auto"
+                title="Tanggal Mulai"
+              />
             </div>
-            <select
-              value={timeFilter}
-              onChange={(e) => setTimeFilter(e.target.value)}
-              className="pl-10 pr-8 py-2.5 bg-slate-50 border border-slate-200 text-sm font-medium rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none w-full sm:w-auto"
-            >
-              <option value="all">Semua Waktu</option>
-              <option value="7d">1 Minggu Terakhir</option>
-              <option value="30d">1 Bulan Terakhir</option>
-              <option value="1y">1 Tahun Terakhir</option>
-            </select>
+            <span className="text-sm font-medium text-slate-400">-</span>
+            <div className="relative">
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="pl-3 pr-3 py-2.5 bg-slate-50 border border-slate-200 text-sm font-medium rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none w-full sm:w-auto"
+                title="Tanggal Akhir"
+              />
+            </div>
           </div>
 
           {/* Proker Filter */}
@@ -282,11 +452,33 @@ export default function ReportsPage() {
               ))}
             </select>
           </div>
+
+          {/* Export Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 w-full sm:w-auto justify-center">
+              <Download className="w-4 h-4" />
+              Cetak Laporan
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={exportToPDF} className="gap-2 cursor-pointer">
+                <FileText className="w-4 h-4 text-rose-500" />
+                Export ke PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToExcel} className="gap-2 cursor-pointer">
+                <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+                Export ke Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToCSV} className="gap-2 cursor-pointer">
+                <FileText className="w-4 h-4 text-slate-500" />
+                Export ke CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <motion.div
           key={`rev-${reportData.revenue}`}
           initial={{ opacity: 0, scale: 0.95 }}
@@ -326,26 +518,6 @@ export default function ReportsPage() {
             <span className="text-lg font-normal text-slate-400">
               transaksi
             </span>
-          </p>
-        </motion.div>
-
-        <motion.div
-          key={`aov-${reportData.aov}`}
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center">
-              <CreditCard className="w-5 h-5 text-purple-600" />
-            </div>
-          </div>
-          <p className="text-sm font-medium text-slate-500 mb-1">
-            Rata-rata Nilai Pesanan
-          </p>
-          <p className="text-3xl font-bold text-slate-900">
-            {formatRupiah(reportData.aov)}
           </p>
         </motion.div>
       </div>
@@ -455,30 +627,26 @@ export default function ReportsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
+                <tr className="bg-blue-50 text-blue-700 text-sm border-b border-blue-200">
                   <th className="p-4 font-medium">Nama Proker</th>
                   <th className="p-4 font-medium text-right">Total Pesanan</th>
                   <th className="p-4 font-medium text-right">Total Pendapatan</th>
-                  <th className="p-4 font-medium text-right">Rata-rata Nilai</th>
                 </tr>
               </thead>
               <tbody>
                 {prokerPerformance.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="p-6 text-center text-slate-400 text-sm">
+                    <td colSpan={3} className="p-6 text-center text-slate-400 text-sm">
                       Belum ada data proker.
                     </td>
                   </tr>
                 ) : (
                   prokerPerformance.map((p, idx) => (
-                    <tr key={idx} className="border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
+                    <tr key={idx} className="border-b border-blue-100 last:border-0 hover:bg-blue-50/50 transition-colors">
                       <td className="p-4 text-sm font-medium text-slate-900">{p.name}</td>
                       <td className="p-4 text-sm text-slate-600 text-right">{p.orders}</td>
                       <td className="p-4 text-sm font-semibold text-emerald-600 text-right">
                         {formatRupiah(p.revenue)}
-                      </td>
-                      <td className="p-4 text-sm text-slate-600 text-right">
-                        {formatRupiah(p.orders > 0 ? p.revenue / p.orders : 0)}
                       </td>
                     </tr>
                   ))
